@@ -24,7 +24,7 @@ const DAM_OUTL   = Cesium.Color.fromCssColorString('#ffd700')
 const FLOOD_FILL = Cesium.Color.fromCssColorString('#1a6fff').withAlpha(0.52)
 const FLOOD_STR  = Cesium.Color.fromCssColorString('#55aaff').withAlpha(0.80)
 
-export default function CesiumViewer({ candidates, selected, heightM, showFlood, onSelect }) {
+export default function CesiumViewer({ candidates, selected, heightM, showFlood, simResult, onSelect }) {
   const containerRef = useRef(null)
   const viewerRef    = useRef(null)
   const damEntRef    = useRef([])
@@ -178,17 +178,17 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
     }))
   }, [selected, heightM])
 
-  // ── 저수면 (showFlood 토글) ─────────────────────
-  const drawFlood = useCallback(() => {
+  // ── 저수면 (API GeoJSON 우선, fallback: 내장 좌표) ─
+  const drawFlood = useCallback(async () => {
     const v = viewerRef.current
     if (!v) return
     clearEnts(floodEntRef)
-    if (!showFlood || !selected?.reservoirCoords?.length) return
+    if (!showFlood || !selected) return
 
-    selected.reservoirCoords.forEach(ring => {
+    const addPolygon = (positions) => {
       floodEntRef.current.push(v.entities.add({
         polygon: {
-          hierarchy:          Cesium.Cartesian3.fromDegreesArray(ring.flatMap(([lo, la]) => [lo, la])),
+          hierarchy:          Cesium.Cartesian3.fromDegreesArray(positions),
           material:           FLOOD_FILL,
           outline:            true,
           outlineColor:       FLOOD_STR,
@@ -196,8 +196,33 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
           classificationType: Cesium.ClassificationType.TERRAIN,
         },
       }))
-    })
-  }, [selected, showFlood])
+    }
+
+    // 1순위: simResult API GeoJSON
+    const geojson = simResult?.flood_geojson
+    if (geojson?.features?.length) {
+      for (const feat of geojson.features) {
+        const geom = feat.geometry
+        if (!geom) continue
+        const rings = geom.type === 'Polygon'
+          ? geom.coordinates
+          : geom.type === 'MultiPolygon'
+            ? geom.coordinates.flat()
+            : []
+        rings.forEach(ring => {
+          addPolygon(ring.flatMap(([lo, la]) => [lo, la]))
+        })
+      }
+      return
+    }
+
+    // 2순위: 내장 reservoirCoords (기준 수위 폴리곤)
+    if (selected.reservoirCoords?.length) {
+      selected.reservoirCoords.forEach(ring => {
+        addPolygon(ring.flatMap(([lo, la]) => [lo, la]))
+      })
+    }
+  }, [selected, showFlood, simResult])
 
   // ── 카메라 이동 (댐 선택 시만) ──────────────────
   const flyToSelected = useCallback(() => {
@@ -232,10 +257,10 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
     drawFlood()
   }, [heightM]) // eslint-disable-line
 
-  // ── 리액션: 수몰 토글
+  // ── 리액션: 수몰 토글 + simResult 갱신
   useEffect(() => {
     drawFlood()
-  }, [showFlood]) // eslint-disable-line
+  }, [showFlood, simResult?.flood_geojson]) // eslint-disable-line
 
   return (
     <div ref={containerRef} style={{ flex: 1, position: 'relative', background: '#000' }}>
