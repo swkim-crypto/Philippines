@@ -1,0 +1,32 @@
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# 데이터 (대용량 — Git LFS 또는 직접 업로드)
+backend/data/tif/*.tif
+backend/data/shp/*.shp
+backend/data/shp/*.dbf
+backend/data/shp/*.prj
+backend/data/shp/*.shx
+backend/data/shp/*.cpg
+
+# 캐시는 커밋해도 됨 (소용량 JSON)
+# backend/data/cache/*.json  ← 주석 처리 = 커밋 포함
+
+# 환경변수
+.env
+.env.*
+*.key.json
+gee-key.json
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,311 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "SA 1 lower dam",
+        "layer": "SA1_lower_dam_axis",
+        "dam_id": "SA1",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.6006470898865,
+            16.64843154469878
+          ],
+          [
+            120.6006907918623,
+            16.64737746925627
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "SA 1 L/D",
+        "layer": "SA1_lower_point",
+        "dam_id": "SA1",
+        "geom_type": "Point"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.6007929218446,
+          16.64892061418724
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "SA 1 U/D",
+        "layer": "SA1_upper_point",
+        "dam_id": "SA1",
+        "geom_type": "Point"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.6155029311578,
+          16.65897191315133
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "SA 1 upper dam",
+        "layer": "SA1_upper_dam_axis",
+        "dam_id": "SA1",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.615876250909,
+            16.65930692601322
+          ],
+          [
+            120.6136398452525,
+            16.65295569574365
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "SA 2 uppr dam axis",
+        "layer": "SA2_upper_dam_axis",
+        "dam_id": "SA2",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.5631582935172,
+            16.65765002251397
+          ],
+          [
+            120.5581318703151,
+            16.65374194125798
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "SA 2 U/D",
+        "layer": "SA2_upper_point",
+        "dam_id": "SA2",
+        "geom_type": "Point"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.5623467832408,
+          16.65726061311021
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "SA 2 lower dam",
+        "layer": "SA2_lower_dam_axis",
+        "dam_id": "SA2",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.5773911820295,
+            16.66407817333108
+          ],
+          [
+            120.5803277961438,
+            16.66510720055273
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "SA 2 L/D",
+        "layer": "SA2_lower_point",
+        "dam_id": "SA2",
+        "geom_type": "Point"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.5801651911228,
+          16.66551383937102
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "CBC1 #3",
+        "layer": "CBC1_dam_axis",
+        "dam_id": "CBC1",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.5700463,
+            16.6943479
+          ],
+          [
+            120.5640474,
+            16.6856554
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "CBC2 #2",
+        "layer": "CBC2_dam_axis",
+        "dam_id": "CBC2",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.5807525,
+            16.6805041
+          ],
+          [
+            120.5645515,
+            16.6831766
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "CBC2 #5",
+        "layer": "CBC2_dam_axis",
+        "dam_id": "CBC2",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.5807525,
+            16.6805041
+          ],
+          [
+            120.5645515,
+            16.6831766
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "CBBC #4",
+        "layer": "CBBC_dam_axis",
+        "dam_id": "CBBC",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.5581707,
+            16.6587114
+          ],
+          [
+            120.5752315,
+            16.6693515
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "CPC #3",
+        "layer": "CPC_dam_axis",
+        "dam_id": "CPC",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.5978402,
+            16.6338037
+          ],
+          [
+            120.6045833,
+            16.645846
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "ALT1 #2",
+        "layer": "ALT1_dam_axis",
+        "dam_id": "ALT1",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.6079568,
+            16.6644608
+          ],
+          [
+            120.6107196,
+            16.6630093
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "ALT1 #3",
+        "layer": "ALT1_dam_axis",
+        "dam_id": "ALT1",
+        "geom_type": "LineString"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            120.5903205,
+            16.6515012
+          ],
+          [
+            120.5889249,
+            16.649785
+          ]
+        ]
+      }
+    }
+  ]
+}
