@@ -180,42 +180,35 @@ export default function CesiumViewer({ candidates, selected, heightM, onSelect }
     }))
   }, [selected, heightM])
 
-  // ── 저수면 (reservoirs.geojson 댐별 필터) ────────
-  const drawFlood = useCallback(async () => {
+
+  // ── 저수면 (candidates.js 내장 좌표 직접 렌더링) ─
+  const drawFlood = useCallback(() => {
     const viewer = viewerRef.current
     if (!viewer) return
-    if (floodLayerRef.current) { viewer.dataSources.remove(floodLayerRef.current); floodLayerRef.current = null }
-    if (!selected) return
-
-    const loadDs = async (geojson) => {
-      const ds = await Cesium.GeoJsonDataSource.load(geojson, {
-        fill: FLOOD_FILL, stroke: FLOOD_STR, strokeWidth: 2, clampToGround: true,
-      })
-      viewer.dataSources.add(ds)
-      floodLayerRef.current = ds
+    if (Array.isArray(floodLayerRef.current)) {
+      floodLayerRef.current.forEach(e => viewer.entities.remove(e))
+    } else if (floodLayerRef.current) {
+      viewer.dataSources.remove(floodLayerRef.current)
     }
+    floodLayerRef.current = null
+    if (!selected?.reservoirCoords?.length) return
+    const entities = []
+    selected.reservoirCoords.forEach(ring => {
+      const positions = ring.flatMap(([lon, lat]) => [lon, lat])
+      entities.push(viewer.entities.add({
+        polygon: {
+          hierarchy: Cesium.Cartesian3.fromDegreesArray(positions),
+          material: FLOOD_FILL,
+          outline: true,
+          outlineColor: FLOOD_STR,
+          outlineWidth: 2,
+          classificationType: Cesium.ClassificationType.TERRAIN,
+        },
+      }))
+    })
+    floodLayerRef.current = entities
+  }, [selected])
 
-    // 1순위: 백엔드
-    try {
-      const fsl  = calcFsl(selected, heightM)
-      const resp = await fetch(`${API_BASE}/flood-surface/${selected.id}?water_level=${fsl}`, { signal: AbortSignal.timeout(12000) })
-      if (!resp.ok) throw new Error()
-      await loadDs(await resp.json()); return
-    } catch (_) {}
-
-    // 2순위: public/reservoirs.geojson — 댐 ID 매칭
-    try {
-      const resp = await fetch('/reservoirs.geojson')
-      if (!resp.ok) throw new Error()
-      const all  = await resp.json()
-      const base = selected.id.split('_')[0]   // CBC1, CBBC 등
-      const feats = all.features.filter(f =>
-        (f.properties?.dam_id ?? '').startsWith(base) ||
-        (f.properties?.layer  ?? '').startsWith(base)
-      )
-      if (feats.length) await loadDs({ ...all, features: feats })
-    } catch (_) {}
-  }, [selected, heightM])
 
   // ── 카메라: 댐 축선 하류쪽에서 상류 바라보기 ─────
   const flyToSelected = useCallback(() => {
