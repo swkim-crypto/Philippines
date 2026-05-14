@@ -48,9 +48,9 @@ export default function CesiumViewer({ candidates, selected, heightM, onSelect }
 
         viewerRef.current = viewer
 
-        // Nam Ngiep 유역 초기 카메라
+        // Philippines Abra 유역 초기 카메라
         viewer.camera.flyTo({
-          destination: Cesium.Cartesian3.fromDegrees(103.35, 19.30, 120000),
+          destination: Cesium.Cartesian3.fromDegrees(120.58, 16.67, 80000),
           orientation: { pitch: Cesium.Math.toRadians(-40) },
           duration: 2,
         })

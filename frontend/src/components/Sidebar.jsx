@@ -1,18 +1,10 @@
 import React from 'react'
 import { PRIORITY_CONFIG, ANALYSIS_INFO } from '../data/candidates.js'
 
-const REGION_ORDER = [
-  'Middle Basin',
-  'Upper Basin',
-  'Lower Valley',
-  'Xieng Khouang Highland',
-]
+const REGION_ORDER = ['Abra Basin']
 
 const REGION_LABELS = {
-  'Middle Basin':           '중부 유역',
-  'Upper Basin':            '상류 유역',
-  'Lower Valley':           '하류 계곡',
-  'Xieng Khouang Highland': '시엥쿠앙 고원',
+  'Abra Basin': 'Abra 유역',
 }
 
 export default function Sidebar({ candidates, selected, onSelect, mobile }) {

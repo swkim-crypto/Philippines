@@ -1,17 +1,17 @@
 // ══════════════════════════════════════════════════════
-//  Nam Ngiep Basin — 댐 후보지 데이터 & 계산 함수
-//  SHP/TIF 로딩 후 backend API가 이 데이터를 보강합니다.
+//  Philippines — Abra Basin 댐 후보지 데이터 & 계산 함수
+//  IfSAR DTM 5m 기반 전처리 결과
 // ══════════════════════════════════════════════════════
 
 export const ANALYSIS_INFO = {
-  basin: { id: 'NAM_NGIEP', name: 'Nam Ngiep Basin' },
+  basin: { id: 'PHILIPPINES', name: 'Abra Basin' },
   analysisDate: new Date().toISOString().slice(0, 10),
-  demSource: 'SRTM 30m',
+  demSource: 'IfSAR 5m',
   method: 'DEM 기반 자동 분석',
   criterion: '최소 저수량 5Mm³',
 }
 
-export const HEIGHT_STEPS = [40, 50, 60, 70, 80, 90, 100, 110, 120]
+export const HEIGHT_STEPS = [20, 30, 40, 50, 60, 70, 80, 90, 100, 120]
 
 export const PRIORITY_CONFIG = {
   '최우선': { color: '#00c4b4', rank: 1 },
@@ -20,128 +20,102 @@ export const PRIORITY_CONFIG = {
   '보류':   { color: '#E05C5C', rank: 4 },
 }
 
-// ── 후보지 목록 ──────────────────────────────────────
-// 실제 운영 시: backend /api/candidates 에서 로드
-// 여기에 기재된 값은 SHP 속성 + 전처리 결과값
 export const CANDIDATES = [
-  // ── Middle Basin ─────────────────────────────────
+  // ── Abra Basin ───────────────────────────────────
   {
-    id: 'S47',    region: 'Middle Basin',
-    priority: '검토필요',
-    lat: 19.3491, lon: 103.3398,
-    bed: 1076,    baseH: 50,  baseFsl: 1126, baseV: 1155.7, baseArea: 0,
-    hMin5: 50,
-    upland_skm: 3200, dis_av_cms: 148,
-    note: 'Auto-generated candidate site',
-    // 댐 벽체 좌표 [lon, lat, alt] × 5점 (역사다리꼴)
+    id: 'CBC1', region: 'Abra Basin', priority: '최우선',
+    lat: 16.6857, lon: 120.5640,
+    bed: 238.7, baseH: 50, baseFsl: 288.7, baseV: 5.8, baseArea: 0.29,
+    hMin5: 50, upland_skm: null, dis_av_cms: null,
+    note: 'IfSAR DTM 5m 기반 자동 분석. 하상고도 238.7m EL.',
     wallCoords: [
-      [103.3375, 19.3470, 1126], [103.3421, 19.3470, 1126],
-      [103.3398, 19.3491, 1076],
-      [103.3421, 19.3512, 1126], [103.3375, 19.3512, 1126],
+      [120.5620, 16.6842, 288.7], [120.5660, 16.6842, 288.7],
+      [120.5640, 16.6857, 238.7],
+      [120.5660, 16.6872, 288.7], [120.5620, 16.6872, 288.7],
     ],
   },
   {
-    id: 'S12',    region: 'Middle Basin',
-    priority: '최우선',
-    lat: 19.2850, lon: 103.4100,
-    bed: 980,     baseH: 60,  baseFsl: 1040, baseV: 2340.0, baseArea: 12.5,
-    hMin5: 40,
-    upland_skm: 2800, dis_av_cms: 130,
-    note: '주요 지류 합류점 상류, 지형 협착부',
+    id: 'CBC2', region: 'Abra Basin', priority: '우선',
+    lat: 16.6832, lon: 120.5646,
+    bed: 234.1, baseH: 50, baseFsl: 284.1, baseV: 8.6, baseArea: 0.43,
+    hMin5: 30, upland_skm: null, dis_av_cms: null,
+    note: 'IfSAR DTM 5m 기반 자동 분석. 하상고도 234.1m EL.',
     wallCoords: [
-      [103.4075, 19.2828, 1040], [103.4125, 19.2828, 1040],
-      [103.4100, 19.2850, 980],
-      [103.4125, 19.2872, 1040], [103.4075, 19.2872, 1040],
+      [120.5626, 16.6817, 284.1], [120.5666, 16.6817, 284.1],
+      [120.5646, 16.6832, 234.1],
+      [120.5666, 16.6847, 284.1], [120.5626, 16.6847, 284.1],
     ],
   },
   {
-    id: 'S23',    region: 'Middle Basin',
-    priority: '우선',
-    lat: 19.3120, lon: 103.3780,
-    bed: 1020,    baseH: 70,  baseFsl: 1090, baseV: 1876.0, baseArea: 9.2,
-    hMin5: 55,
-    upland_skm: 1950, dis_av_cms: 95,
-    note: '협곡 지형, 댐 길이 단축 유리',
+    id: 'CBBC', region: 'Abra Basin', priority: '우선',
+    lat: 16.6694, lon: 120.5752,
+    bed: 316.8, baseH: 50, baseFsl: 366.8, baseV: 7.6, baseArea: 0.38,
+    hMin5: 40, upland_skm: null, dis_av_cms: null,
+    note: 'IfSAR DTM 5m 기반 자동 분석. 하상고도 316.8m EL.',
     wallCoords: [
-      [103.3755, 19.3098, 1090], [103.3805, 19.3098, 1090],
-      [103.3780, 19.3120, 1020],
-      [103.3805, 19.3142, 1090], [103.3755, 19.3142, 1090],
-    ],
-  },
-
-  // ── Upper Basin ───────────────────────────────────
-  {
-    id: 'S31',    region: 'Upper Basin',
-    priority: '우선',
-    lat: 19.4800, lon: 103.2500,
-    bed: 1180,    baseH: 80,  baseFsl: 1260, baseV: 3120.0, baseArea: 22.0,
-    hMin5: 45,
-    upland_skm: 1200, dis_av_cms: 58,
-    note: '상류 저류, 홍수 조절 효과 우수',
-    wallCoords: [
-      [103.2475, 19.4778, 1260], [103.2525, 19.4778, 1260],
-      [103.2500, 19.4800, 1180],
-      [103.2525, 19.4822, 1260], [103.2475, 19.4822, 1260],
+      [120.5732, 16.6679, 366.8], [120.5772, 16.6679, 366.8],
+      [120.5752, 16.6694, 316.8],
+      [120.5772, 16.6709, 366.8], [120.5732, 16.6709, 366.8],
     ],
   },
   {
-    id: 'S38',    region: 'Upper Basin',
-    priority: '검토필요',
-    lat: 19.5200, lon: 103.2100,
-    bed: 1240,    baseH: 60,  baseFsl: 1300, baseV: 890.0,  baseArea: 5.8,
-    hMin5: 75,
-    upland_skm: 650, dis_av_cms: 31,
-    note: '소유역, 저수량 제한적',
+    id: 'CPC', region: 'Abra Basin', priority: '검토필요',
+    lat: 16.6458, lon: 120.6046,
+    bed: 422.3, baseH: 50, baseFsl: 472.3, baseV: 2.8, baseArea: 0.14,
+    hMin5: 90, upland_skm: null, dis_av_cms: null,
+    note: 'IfSAR DTM 5m 기반 자동 분석. 하상고도 422.3m EL.',
     wallCoords: [
-      [103.2075, 19.5178, 1300], [103.2125, 19.5178, 1300],
-      [103.2100, 19.5200, 1240],
-      [103.2125, 19.5222, 1300], [103.2075, 19.5222, 1300],
-    ],
-  },
-
-  // ── Lower Valley ──────────────────────────────────
-  {
-    id: 'S05',    region: 'Lower Valley',
-    priority: '최우선',
-    lat: 18.9800, lon: 103.5500,
-    bed: 820,     baseH: 90,  baseFsl: 910,  baseV: 4520.0, baseArea: 38.0,
-    hMin5: 35,
-    upland_skm: 5500, dis_av_cms: 260,
-    note: '본류 최적 지점, 대규모 저수 가능',
-    wallCoords: [
-      [103.5470, 18.9778, 910],  [103.5530, 18.9778, 910],
-      [103.5500, 18.9800, 820],
-      [103.5530, 18.9822, 910],  [103.5470, 18.9822, 910],
+      [120.6026, 16.6443, 472.3], [120.6066, 16.6443, 472.3],
+      [120.6046, 16.6458, 422.3],
+      [120.6066, 16.6473, 472.3], [120.6026, 16.6473, 472.3],
     ],
   },
   {
-    id: 'S08',    region: 'Lower Valley',
-    priority: '우선',
-    lat: 19.0500, lon: 103.5100,
-    bed: 860,     baseH: 80,  baseFsl: 940,  baseV: 2980.0, baseArea: 25.0,
-    hMin5: 50,
-    upland_skm: 4800, dis_av_cms: 228,
-    note: '지류 합류 전, 독립 저류 가능',
+    id: 'SA1_lower', region: 'Abra Basin', priority: '최우선',
+    lat: 16.6474, lon: 120.6007,
+    bed: 479.3, baseH: 50, baseFsl: 529.3, baseV: 0, baseArea: null,
+    hMin5: 999, upland_skm: null, dis_av_cms: null,
+    note: 'IfSAR DTM 5m 기반 자동 분석. 하상고도 479.3m EL.',
     wallCoords: [
-      [103.5075, 19.0478, 940],  [103.5125, 19.0478, 940],
-      [103.5100, 19.0500, 860],
-      [103.5125, 19.0522, 940],  [103.5075, 19.0522, 940],
+      [120.5987, 16.6459, 529.3], [120.6027, 16.6459, 529.3],
+      [120.6007, 16.6474, 479.3],
+      [120.6027, 16.6489, 529.3], [120.5987, 16.6489, 529.3],
     ],
   },
-
-  // ── Xieng Khouang Highland ────────────────────────
   {
-    id: 'S55',    region: 'Xieng Khouang Highland',
-    priority: '검토필요',
-    lat: 19.6100, lon: 103.1500,
-    bed: 1320,    baseH: 50,  baseFsl: 1370, baseV: 620.0,  baseArea: 3.2,
-    hMin5: 90,
-    upland_skm: 380, dis_av_cms: 18,
-    note: '고원 소유역, 관개 목적 소규모 적합',
+    id: 'SA1_upper', region: 'Abra Basin', priority: '우선',
+    lat: 16.6530, lon: 120.6136,
+    bed: 1124.6, baseH: 50, baseFsl: 1174.6, baseV: 0, baseArea: null,
+    hMin5: 999, upland_skm: null, dis_av_cms: null,
+    note: 'IfSAR DTM 5m 기반 자동 분석. 하상고도 1124.6m EL.',
     wallCoords: [
-      [103.1475, 19.6078, 1370], [103.1525, 19.6078, 1370],
-      [103.1500, 19.6100, 1320],
-      [103.1525, 19.6122, 1370], [103.1475, 19.6122, 1370],
+      [120.6116, 16.6515, 1174.6], [120.6156, 16.6515, 1174.6],
+      [120.6136, 16.6530, 1124.6],
+      [120.6156, 16.6545, 1174.6], [120.6116, 16.6545, 1174.6],
+    ],
+  },
+  {
+    id: 'SA2_lower', region: 'Abra Basin', priority: '우선',
+    lat: 16.6651, lon: 120.5803,
+    bed: 506.0, baseH: 50, baseFsl: 556.0, baseV: 0, baseArea: null,
+    hMin5: 999, upland_skm: null, dis_av_cms: null,
+    note: 'IfSAR DTM 5m 기반 자동 분석. 하상고도 506.0m EL.',
+    wallCoords: [
+      [120.5783, 16.6636, 556.0], [120.5823, 16.6636, 556.0],
+      [120.5803, 16.6651, 506.0],
+      [120.5823, 16.6666, 556.0], [120.5783, 16.6666, 556.0],
+    ],
+  },
+  {
+    id: 'SA2_upper', region: 'Abra Basin', priority: '검토필요',
+    lat: 16.6537, lon: 120.5581,
+    bed: 1225.6, baseH: 50, baseFsl: 1275.6, baseV: 0, baseArea: null,
+    hMin5: 999, upland_skm: null, dis_av_cms: null,
+    note: 'IfSAR DTM 5m 기반 자동 분석. 하상고도 1225.6m EL.',
+    wallCoords: [
+      [120.5561, 16.6522, 1275.6], [120.5601, 16.6522, 1275.6],
+      [120.5581, 16.6537, 1225.6],
+      [120.5601, 16.6552, 1275.6], [120.5561, 16.6552, 1275.6],
     ],
   },
 ]
