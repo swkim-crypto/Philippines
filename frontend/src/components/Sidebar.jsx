@@ -7,7 +7,7 @@ const REGION_LABELS = {
   'Abra Basin': 'Abra 유역',
 }
 
-export default function Sidebar({ candidates, selected, onSelect, mobile }) {
+export default function Sidebar({ candidates, selected, onSelect, mobile, showFlood, onToggleFlood }) {
   // ── region별 그룹핑 ─────────────────────────────
   const grouped = REGION_ORDER.reduce((acc, r) => {
     acc[r] = (candidates ?? []).filter(c => c.region === r)
@@ -26,15 +26,37 @@ export default function Sidebar({ candidates, selected, onSelect, mobile }) {
       height:          '100%',
     }}>
 
-      {/* ── 프로젝트 타이틀 ── */}
+      {/* ── 프로젝트 타이틀 + 수몰 토글 ── */}
       {!mobile && (
-        <div style={{ padding: '12px 18px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-sec)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 2 }}>
-            {ANALYSIS_INFO.basin.id}
+        <div style={{ padding: '12px 18px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-sec)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 2 }}>
+              {ANALYSIS_INFO.basin.id}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-pri)', fontFamily: 'var(--font-mono)' }}>
+              댐 후보지 분석 시스템
+            </div>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-pri)', fontFamily: 'var(--font-mono)' }}>
-            댐 후보지 분석 시스템
-          </div>
+          {/* 수몰지역 토글 버튼 */}
+          <button
+            onClick={onToggleFlood}
+            title="수몰지역 표시/숨김"
+            style={{
+              marginTop: 2,
+              padding: '3px 8px',
+              fontSize: 10,
+              fontFamily: 'var(--font-mono)',
+              background: showFlood ? 'rgba(26,111,255,0.25)' : 'transparent',
+              color:      showFlood ? '#55aaff' : 'var(--text-sec)',
+              border:    `1px solid ${showFlood ? '#55aaff' : 'rgba(255,255,255,0.15)'}`,
+              borderRadius: 3,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s',
+            }}
+          >
+            💧 수몰
+          </button>
         </div>
       )}
 
