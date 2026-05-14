@@ -111,58 +111,56 @@ export default function CesiumViewer({ candidates, selected, heightM, onSelect }
     damLayerRef.current = []
     if (!selected) return
 
-    const fsl  = calcFsl(selected, heightM)
-    const bed  = selected.bed ?? (fsl - heightM)
-    const axis = DAM_AXES[selected.id]
-    const lon  = selected.lon, lat = selected.lat
+    const fsl     = calcFsl(selected, heightM)
+    const lon     = selected.lon, lat = selected.lat
+    const wallPts = selected.wallPts  // [[lon,lat,terrainElev], ...]
 
-    if (axis) {
-      // 실제 축선 좌표로 Wall entity 생성 (수직 벽)
-      const [x1, y1] = axis.p1
-      const [x2, y2] = axis.p2
+    if (wallPts?.length >= 2) {
+      // Wall 위: FSL 고도 (일정), Wall 아래: 실제 지형 고도
+      const positions    = wallPts.flatMap(([lo, la]) => [lo, la])
+      const maxHeights   = wallPts.map(() => fsl)          // 상단 = FSL
+      const minHeights   = wallPts.map(([,, elev]) => elev) // 하단 = 지형
 
-      // Wall: 상단=FSL, 하단=Bed 고도
-      const wallEnt = viewer.entities.add({
+      // 댐 본체 Wall
+      damLayerRef.current.push(viewer.entities.add({
         wall: {
-          positions: Cesium.Cartesian3.fromDegreesArray([x1, y1, x2, y2]),
-          maximumHeights: [fsl, fsl],
-          minimumHeights: [bed, bed],
-          material: DAM_COLOR,
-          outline: true,
-          outlineColor: DAM_OUTL,
-          outlineWidth: 3,
+          positions:      Cesium.Cartesian3.fromDegreesArray(positions),
+          maximumHeights: maxHeights,
+          minimumHeights: minHeights,
+          material:       DAM_COLOR,
+          outline:        true,
+          outlineColor:   DAM_OUTL,
+          outlineWidth:   2,
         },
-      })
-      damLayerRef.current.push(wallEnt)
+      }))
 
-      // 마루 상단 라인 강조
-      const topLine = viewer.entities.add({
+      // 마루(상단) 강조선
+      const topPts = wallPts.flatMap(([lo, la]) => [lo, la, fsl])
+      damLayerRef.current.push(viewer.entities.add({
         polyline: {
-          positions: Cesium.Cartesian3.fromDegreesArrayHeights([x1,y1,fsl, x2,y2,fsl]),
-          width: 4,
+          positions: Cesium.Cartesian3.fromDegreesArrayHeights(topPts),
+          width: 5,
           material: new Cesium.PolylineOutlineMaterialProperty({
-            color: DAM_OUTL,
-            outlineWidth: 1,
-            outlineColor: Cesium.Color.BLACK,
+            color: DAM_OUTL, outlineWidth: 1, outlineColor: Cesium.Color.BLACK,
           }),
-          clampToGround: false,
         },
-      })
-      damLayerRef.current.push(topLine)
+      }))
 
     } else {
-      // 축선 없는 경우 — E-W 방향 기본 Wall
-      const dLon = 0.003
-      const wallEnt = viewer.entities.add({
-        wall: {
-          positions: Cesium.Cartesian3.fromDegreesArray([lon-dLon,lat, lon+dLon,lat]),
-          maximumHeights: [fsl, fsl],
-          minimumHeights: [bed, bed],
-          material: DAM_COLOR,
-          outline: true, outlineColor: DAM_OUTL, outlineWidth: 3,
-        },
-      })
-      damLayerRef.current.push(wallEnt)
+      // wallPts 없으면 단순 2점 Wall
+      const axis = DAM_AXES[selected.id]
+      const bed  = selected.bed ?? (fsl - heightM)
+      if (axis) {
+        const [x1,y1] = axis.p1, [x2,y2] = axis.p2
+        damLayerRef.current.push(viewer.entities.add({
+          wall: {
+            positions: Cesium.Cartesian3.fromDegreesArray([x1,y1,x2,y2]),
+            maximumHeights: [fsl, fsl],
+            minimumHeights: [bed, bed],
+            material: DAM_COLOR, outline: true, outlineColor: DAM_OUTL, outlineWidth: 2,
+          },
+        }))
+      }
     }
 
     // 레이블
