@@ -3,26 +3,24 @@ import * as Cesium from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 import { calcFsl } from '../data/candidates.js'
 
-// Cesium Ion 토큰 (환경변수 우선, fallback은 공개 토큰)
 Cesium.Ion.defaultAccessToken =
   import.meta.env.VITE_CESIUM_TOKEN ??
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ5YS1lOTViYjlkZjdjNDkiLCJpZCI6MjU2NTQ1LCJpYXQiOjE3MzI2MDE0OTN9.l9OVl0-GEjkl7GxvGKD0bDjJSy3Ps1Ml9BhWQmVaABs'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
-
-// ── 댐 벽체 색상 ─────────────────────────────────
-const DAM_COLOR   = Cesium.Color.fromCssColorString('#f0a500').withAlpha(0.85)
-const FLOOD_COLOR = Cesium.Color.fromCssColorString('#1a6fff').withAlpha(0.50)
-const SEL_COLOR   = Cesium.Color.fromCssColorString('#00c4b4').withAlpha(0.90)
+const API_BASE   = import.meta.env.VITE_API_URL ?? '/api'
+const DAM_COLOR  = Cesium.Color.fromCssColorString('#f0a500').withAlpha(0.92)
+const DAM_OUTL   = Cesium.Color.fromCssColorString('#ffd700')
+const FLOOD_FILL = Cesium.Color.fromCssColorString('#1a6fff').withAlpha(0.55)
+const FLOOD_STR  = Cesium.Color.fromCssColorString('#55aaff').withAlpha(0.80)
 
 export default function CesiumViewer({ candidates, selected, heightM, onSelect }) {
   const containerRef  = useRef(null)
   const viewerRef     = useRef(null)
-  const wallLayerRef  = useRef([])   // 댐 벽체 entity 목록
-  const floodLayerRef = useRef(null) // 수몰면 DataSource
-  const markerLayerRef = useRef([])  // 후보지 마커
+  const damLayerRef   = useRef([])
+  const floodLayerRef = useRef(null)
+  const markerLayerRef = useRef([])
 
-  // ── Cesium 초기화 (마운트 시 1회) ──────────────
+  // ── 초기화 ──────────────────────────────────────
   useEffect(() => {
     let viewer
     ;(async () => {
@@ -39,23 +37,19 @@ export default function CesiumViewer({ candidates, selected, heightM, onSelect }
           timeline:             false,
           infoBox:              false,
           selectionIndicator:   false,
-          creditContainer:      document.createElement('div'), // 저작권 숨김
+          creditContainer:      document.createElement('div'),
         })
-
         viewer.scene.skyAtmosphere.show = true
         viewer.scene.globe.enableLighting = false
-        viewer.scene.globe.depthTestAgainstTerrain = true
-
+        viewer.scene.globe.depthTestAgainstTerrain = false
         viewerRef.current = viewer
 
-        // Philippines Abra 유역 초기 카메라
         viewer.camera.flyTo({
-          destination: Cesium.Cartesian3.fromDegrees(120.58, 16.67, 80000),
-          orientation: { pitch: Cesium.Math.toRadians(-40) },
+          destination: Cesium.Cartesian3.fromDegrees(120.58, 16.62, 55000),
+          orientation: { heading: 0, pitch: Cesium.Math.toRadians(-35), roll: 0 },
           duration: 2,
         })
 
-        // 클릭 → 후보지 선택
         const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas)
         handler.setInputAction(click => {
           const picked = viewer.scene.pick(click.position)
@@ -66,186 +60,153 @@ export default function CesiumViewer({ candidates, selected, heightM, onSelect }
           }
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
-      } catch (err) {
-        console.error('Cesium 초기화 오류:', err)
-      }
+      } catch (err) { console.error('Cesium 초기화 오류:', err) }
     })()
+    return () => { if (viewer && !viewer.isDestroyed()) viewer.destroy(); viewerRef.current = null }
+  }, []) // eslint-disable-line
 
-    return () => {
-      if (viewer && !viewer.isDestroyed()) viewer.destroy()
-      viewerRef.current = null
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── 모든 후보지 마커 그리기 ────────────────────
+  // ── 마커 (지형에 붙음) ───────────────────────────
   const drawMarkers = useCallback(() => {
     const viewer = viewerRef.current
     if (!viewer) return
-
     markerLayerRef.current.forEach(e => viewer.entities.remove(e))
     markerLayerRef.current = []
-
     candidates.forEach(c => {
       const isSel = selected?.id === c.id
-      const e = viewer.entities.add({
-        position: Cesium.Cartesian3.fromDegrees(c.lon, c.lat, (c.bed ?? 900) + (c.baseH ?? 60) + 500),
+      markerLayerRef.current.push(viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(c.lon, c.lat),
         billboard: {
           image: makePinSvg(c.id, isSel),
-          width:  isSel ? 52 : 38,
-          height: isSel ? 52 : 38,
+          width: isSel ? 56 : 42, height: isSel ? 56 : 42,
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         properties: { damId: c.id },
-      })
-      markerLayerRef.current.push(e)
+      }))
     })
   }, [candidates, selected])
 
-  // ── 선택 댐 벽체 그리기 ────────────────────────
-  const drawWall = useCallback(() => {
+  // ── 댐 심볼 (역사다리꼴 3D 솔리드) ──────────────
+  const drawDam = useCallback(() => {
     const viewer = viewerRef.current
     if (!viewer) return
-
-    wallLayerRef.current.forEach(e => viewer.entities.remove(e))
-    wallLayerRef.current = []
-
+    damLayerRef.current.forEach(e => viewer.entities.remove(e))
+    damLayerRef.current = []
     if (!selected) return
 
     const fsl = calcFsl(selected, heightM)
-    const coords = selected.wallCoords
+    const bed = selected.bed ?? (fsl - heightM)
+    const lon = selected.lon, lat = selected.lat
 
-    if (!coords?.length) return
+    // 역사다리꼴: 상단 넓고 하단 좁음
+    const tW = 0.004   // 상단 반폭 ~400m
+    const bW = 0.0008  // 하단 반폭 ~80m
+    const dY = 0.0010  // 두께 ~100m
 
-    // 역사다리꼴 벽체 Wall entity
-    // wallCoords: [[lon, lat, alt], ...] 5점
-    const positions = coords.flatMap(([lon, lat, alt]) => [lon, lat, alt])
+    const faces = [
+      // 앞면(하류)
+      [lon-tW,lat-dY,fsl, lon+tW,lat-dY,fsl, lon+bW,lat-dY,bed, lon-bW,lat-dY,bed],
+      // 뒷면(상류)
+      [lon-tW,lat+dY,fsl, lon+tW,lat+dY,fsl, lon+bW,lat+dY,bed, lon-bW,lat+dY,bed],
+      // 마루(상단)
+      [lon-tW,lat-dY,fsl, lon+tW,lat-dY,fsl, lon+tW,lat+dY,fsl, lon-tW,lat+dY,fsl],
+      // 우측면
+      [lon+tW,lat-dY,fsl, lon+tW,lat+dY,fsl, lon+bW,lat+dY,bed, lon+bW,lat-dY,bed],
+      // 좌측면
+      [lon-tW,lat-dY,fsl, lon-tW,lat+dY,fsl, lon-bW,lat+dY,bed, lon-bW,lat-dY,bed],
+    ]
 
-    const wallEnt = viewer.entities.add({
-      wall: {
-        positions: Cesium.Cartesian3.fromDegreesArrayHeights(positions),
-        material:  DAM_COLOR,
-        outline:   true,
-        outlineColor: Cesium.Color.fromCssColorString('#ffd700'),
-        outlineWidth: 2,
-      },
-      properties: { damId: selected.id },
+    faces.forEach(pts => {
+      damLayerRef.current.push(viewer.entities.add({
+        polygon: {
+          hierarchy: { positions: Cesium.Cartesian3.fromDegreesArrayHeights(pts) },
+          material: DAM_COLOR, perPositionHeight: true,
+          outline: true, outlineColor: DAM_OUTL, outlineWidth: 2,
+        },
+      }))
     })
-    wallLayerRef.current.push(wallEnt)
 
-    // 댐 레이블
-    const label = viewer.entities.add({
-      position: Cesium.Cartesian3.fromDegrees(selected.lon, selected.lat, fsl + 800),
+    // 레이블
+    damLayerRef.current.push(viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, fsl + 150),
       label: {
-        text:         `${selected.id}\nFSL ${fsl}m EL`,
-        font:         '13px Space Mono',
-        fillColor:    Cesium.Color.fromCssColorString('#ffd700'),
-        outlineColor: Cesium.Color.BLACK,
-        outlineWidth: 2,
-        style:        Cesium.LabelStyle.FILL_AND_OUTLINE,
+        text: `${selected.id}  FSL ${fsl.toFixed(0)}m EL`,
+        font: '12px Space Mono',
+        fillColor: Cesium.Color.fromCssColorString('#ffd700'),
+        outlineColor: Cesium.Color.BLACK, outlineWidth: 2,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        pixelOffset: new Cesium.Cartesian2(0, -8),
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
-    })
-    wallLayerRef.current.push(label)
-
+    }))
   }, [selected, heightM])
 
-  // ── 수몰면 로드 & 그리기 ────────────────────────
+  // ── 저수면 (상류 폴리곤) ─────────────────────────
   const drawFlood = useCallback(async () => {
     const viewer = viewerRef.current
     if (!viewer) return
-
-    // 기존 수몰면 제거
-    if (floodLayerRef.current) {
-      viewer.dataSources.remove(floodLayerRef.current)
-      floodLayerRef.current = null
-    }
-
+    if (floodLayerRef.current) { viewer.dataSources.remove(floodLayerRef.current); floodLayerRef.current = null }
     if (!selected) return
 
-    try {
-      // backend에서 수몰 SHP → GeoJSON 로드
-      const fsl = calcFsl(selected, heightM)
-      const url = `${API_BASE}/flood-surface/${selected.id}?water_level=${fsl}`
-      const resp = await fetch(url, { signal: AbortSignal.timeout(30000) })
-
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-      const geojson = await resp.json()
-
+    const loadDs = async (geojson) => {
       const ds = await Cesium.GeoJsonDataSource.load(geojson, {
-        fill:        FLOOD_COLOR,
-        stroke:      Cesium.Color.fromCssColorString('#4499ff').withAlpha(0.7),
-        strokeWidth: 1,
-        clampToGround: true,
+        fill: FLOOD_FILL, stroke: FLOOD_STR, strokeWidth: 2, clampToGround: true,
       })
       viewer.dataSources.add(ds)
       floodLayerRef.current = ds
-
-    } catch (err) {
-      // Fallback: 로컬 근사 원형 수몰면
-      console.warn('flood-surface API 없음, fallback 렌더링:', err.message)
-      drawFallbackFlood()
     }
-  }, [selected, heightM])
 
-  // 폴백: 타원형 근사 수몰면
-  const drawFallbackFlood = useCallback(() => {
-    const viewer = viewerRef.current
-    if (!viewer || !selected) return
+    // 1순위: 백엔드 API
+    try {
+      const fsl  = calcFsl(selected, heightM)
+      const resp = await fetch(`${API_BASE}/flood-surface/${selected.id}?water_level=${fsl}`, { signal: AbortSignal.timeout(12000) })
+      if (!resp.ok) throw new Error()
+      await loadDs(await resp.json()); return
+    } catch (_) {}
 
-    const fsl    = calcFsl(selected, heightM)
-    const ratio  = Math.max(0.1, (fsl - (selected.bed ?? 900)) / (selected.baseH ?? 60))
-    const rKm    = Math.min(15, 4 * ratio)
-    const positions = []
-
-    for (let a = 0; a <= 360; a += 4) {
-      const rad = Cesium.Math.toRadians(a)
-      positions.push(
-        selected.lon + rKm / 111 * Math.cos(rad),
-        selected.lat + rKm / 111 * Math.sin(rad) * 0.65,
+    // 2순위: public/reservoirs.geojson (댐 ID 필터)
+    try {
+      const resp = await fetch('/reservoirs.geojson')
+      if (!resp.ok) throw new Error()
+      const all = await resp.json()
+      const damBase = selected.id.split('_')[0]
+      const feats = all.features.filter(f =>
+        (f.properties?.dam_id ?? '').startsWith(damBase) ||
+        (f.properties?.layer  ?? '').startsWith(damBase)
       )
-    }
-
-    const ent = viewer.entities.add({
-      polygon: {
-        hierarchy: Cesium.Cartesian3.fromDegreesArray(positions),
-        material:  FLOOD_COLOR,
-        outline:   true,
-        outlineColor: Cesium.Color.fromCssColorString('#3399ff').withAlpha(0.6),
-        classificationType: Cesium.ClassificationType.TERRAIN,
-      },
-    })
-    // 임시로 wallLayer에 등록해서 다음 갱신 시 제거
-    wallLayerRef.current.push(ent)
+      await loadDs({ ...all, features: feats.length ? feats : all.features })
+    } catch (_) {}
   }, [selected, heightM])
 
-  // ── 카메라 이동 ────────────────────────────────
+  // ── 카메라: 하류에서 댐(상류) 바라보기 ───────────
   const flyToSelected = useCallback(() => {
     const viewer = viewerRef.current
     if (!viewer || !selected) return
+    const fsl = calcFsl(selected, heightM)
     viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(selected.lon, selected.lat - 0.04, 28000),
-      orientation: { pitch: Cesium.Math.toRadians(-32) },
+      destination: Cesium.Cartesian3.fromDegrees(
+        selected.lon,
+        selected.lat - 0.022,          // 댐 남쪽(하류)에 카메라
+        Math.max(fsl + 2500, 5000),    // 높이
+      ),
+      orientation: {
+        heading: Cesium.Math.toRadians(0),   // 북쪽(상류) 바라봄
+        pitch:   Cesium.Math.toRadians(-18), // 약간 내려다봄
+        roll:    0,
+      },
       duration: 1.8,
     })
-  }, [selected])
+  }, [selected, heightM])
 
-  // ── 리액션: candidates 변경 → 마커 갱신 ─────────
   useEffect(() => { drawMarkers() }, [drawMarkers])
-
-  // ── 리액션: selected / heightM 변경 → 벽체 + 수몰면 ──
   useEffect(() => {
-    drawMarkers()
-    drawWall()
-    drawFlood()
+    drawMarkers(); drawDam(); drawFlood()
     if (selected) flyToSelected()
-  }, [selected?.id, heightM]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selected?.id, heightM]) // eslint-disable-line
 
   return (
     <div ref={containerRef} style={{ flex: 1, position: 'relative', background: '#000' }}>
-      {/* 조작 안내 */}
       <div style={{
         position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
         background: 'rgba(5,12,20,0.80)', border: '1px solid rgba(0,160,200,0.2)',
@@ -259,15 +220,14 @@ export default function CesiumViewer({ candidates, selected, heightM, onSelect }
   )
 }
 
-// SVG 핀 이미지 생성 (canvas → dataURL)
-function makePinSvg(label, selected) {
-  const color = selected ? '#00c4b4' : '#f0a500'
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-      <circle cx="24" cy="20" r="16" fill="${color}" fill-opacity="0.9" stroke="#fff" stroke-width="1.5"/>
-      <text x="24" y="25" text-anchor="middle" font-size="11" font-weight="700"
+function makePinSvg(label, sel) {
+  const c = sel ? '#00c4b4' : '#f0a500'
+  return `data:image/svg+xml;base64,${btoa(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56">
+      <circle cx="28" cy="22" r="18" fill="${c}" fill-opacity="0.92" stroke="#fff" stroke-width="1.5"/>
+      <text x="28" y="27" text-anchor="middle" font-size="10" font-weight="700"
         font-family="Space Mono,monospace" fill="#050c14">${label}</text>
-      <polygon points="24,40 18,28 30,28" fill="${color}" fill-opacity="0.9"/>
+      <polygon points="28,46 21,34 35,34" fill="${c}" fill-opacity="0.92"/>
     </svg>`
-  return `data:image/svg+xml;base64,${btoa(svg)}`
+  )}`
 }
