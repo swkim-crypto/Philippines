@@ -1,12 +1,32 @@
 import React, { useMemo } from 'react'
 import {
   estimateVolume, estimateArea, calcFsl, calcEfficiency, estimateEvap,
-  PRIORITY_CONFIG, HEIGHT_STEPS,
+  PRIORITY_CONFIG, HEIGHT_STEPS, CANDIDATES,
 } from '../data/candidates.js'
 import { damLengths } from '../data/damLengths.js'
 import ProfileChart from './ProfileChart.jsx'
 
 const isApproxMode = c => c.bed == null || c.baseArea == null
+
+// 발전량 추정: P(MW) = 9.8 × Q(m³/s) × H(m) × η / 1000
+// Q: 저수량을 연간 유효 가동시간(2000h) 기준으로 환산
+function estimatePower(volumeMm3, dropM, opHours = 2000, eta = 0.85) {
+  if (!volumeMm3 || !dropM || dropM <= 0) return { power: null, energy: null }
+  const q = (volumeMm3 * 1e6) / (opHours * 3600)
+  const power  = Math.round(9.8 * q * dropM * eta / 1000 * 10) / 10  // MW
+  const energy = Math.round(power * opHours / 1000 * 10) / 10          // GWh/yr
+  return { power, energy }
+}
+
+// 같은 cat(CBC/CBBC/CPC)의 연계 댐 찾기
+function getLinkedDams(candidate) {
+  if (!candidate?.cat) return { lower: null, uppers: [] }
+  const same = CANDIDATES.filter(c => c.cat === candidate.cat && c.id !== candidate.id)
+  return {
+    lower:  same.find(c => c.damType === 'lower') ?? null,
+    uppers: same.filter(c => c.damType === 'upper'),
+  }
+}
 
 function StatCard({ label, value, unit, sub, highlight }) {
   return (
@@ -29,21 +49,33 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
   // simResult 있으면 API 값, 없으면 로컬 추정
   const stats = useMemo(() => {
     if (!candidate) return null
+    const isUpper = candidate.damType === 'upper'
+    const drop = candidate.drop ?? 0
+
     if (simResult) {
+      const pw = simResult.power_mw != null
+        ? { power: simResult.power_mw, energy: simResult.energy_gwh }
+        : estimatePower(simResult.volume_mm3, drop)
       return {
-        fsl:   simResult.fsl,
-        a:     simResult.area_km2,
-        v:     simResult.volume_mm3,
-        er:    calcEfficiency(simResult.volume_mm3, simResult.area_km2),
-        evap:  estimateEvap(simResult.area_km2),
+        fsl:     simResult.fsl,
+        a:       simResult.area_km2,
+        v:       simResult.volume_mm3,
+        er:      calcEfficiency(simResult.volume_mm3, simResult.area_km2),
+        evap:    estimateEvap(simResult.area_km2),
         fromApi: simResult.source === 'api',
+        power:   isUpper ? pw.power  : null,
+        energy:  isUpper ? pw.energy : null,
       }
     }
     const v   = estimateVolume(candidate, heightM)
     const a   = estimateArea(candidate, heightM)
     const fsl = calcFsl(candidate, heightM)
-    return { fsl, a, v, er: calcEfficiency(v,a), evap: estimateEvap(a), fromApi: false }
+    const pw  = isUpper ? estimatePower(v, drop) : { power: null, energy: null }
+    return { fsl, a, v, er: calcEfficiency(v,a), evap: estimateEvap(a), fromApi: false,
+             power: pw.power, energy: pw.energy }
   }, [candidate, heightM, simResult])
+
+  const linked = useMemo(() => candidate ? getLinkedDams(candidate) : null, [candidate])
 
   const damLength = useMemo(() => {
     if (!candidate || approx) return null
@@ -158,6 +190,12 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
           <StatCard label="수몰 면적"     value={stats.a}    unit="km²"  highlight={stats.fromApi} />
           <StatCard label="E-ratio"       value={stats.er}   unit="Mm³/km²" sub="저수량/수몰면적" />
           <StatCard label="증발 손실"     value={stats.evap} unit="Mm³/yr"  sub="1,500mm/yr" />
+          {candidate.damType === 'upper' && <>
+            <StatCard label="낙차 (Net Head)" value={candidate.drop ?? '—'} unit="m"
+              sub={`Bed ${candidate.bed}m → 하부댐`} highlight />
+            <StatCard label="추정 발전용량"   value={stats.power}  unit="MW"
+              sub={stats.energy != null ? `${stats.energy} GWh/yr` : '2,000h/yr 기준'} highlight />
+          </>}
         </div>
 
         {/* 프로파일 차트 */}
@@ -193,7 +231,46 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
           ))}
         </div>
 
-        <div style={{ background:'rgba(0,196,180,0.06)', border:'1px solid rgba(0,196,180,0.15)',
+        {/* 연계 댐 정보 */}
+        {linked && (linked.lower || linked.uppers.length > 0) && (
+          <>
+            <div style={{ fontSize:11, color:'#a0bcd0', fontFamily:'var(--font-mono)', letterSpacing:'0.1em', marginBottom:4 }}>
+              연계 댐 ({candidate.cat} 시스템)
+            </div>
+            <div style={{ background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:8, overflow:'hidden', marginBottom:8 }}>
+              {linked.lower && (
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                  padding:'5px 12px', borderBottom: linked.uppers.length > 0 ? '1px solid var(--border)' : 'none', fontSize:12 }}>
+                  <span style={{ color:'#f0a500', fontFamily:'var(--font-mono)' }}>▼ 하부댐 (저수)</span>
+                  <span style={{ color:'#e8eef4', fontFamily:'var(--font-mono)', fontWeight:700 }}>
+                    {linked.lower.label}  Bed {linked.lower.bed}m · {linked.lower.baseV}Mm³
+                  </span>
+                </div>
+              )}
+              {linked.uppers.map((u, i) => (
+                <div key={u.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                  padding:'5px 12px', borderBottom: i < linked.uppers.length - 1 ? '1px solid var(--border)' : 'none', fontSize:12 }}>
+                  <span style={{ color:'#00aaff', fontFamily:'var(--font-mono)' }}>▲ 상부댐 (양수)</span>
+                  <span style={{ color:'#e8eef4', fontFamily:'var(--font-mono)', fontWeight:700 }}>
+                    {u.label}  낙차 {u.drop}m · {u.baseV}Mm³
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* 발전량 공식 NOTE (상부댐만) */}
+        {candidate.damType === 'upper' && (
+          <div style={{ background:'rgba(0,170,255,0.06)', border:'1px solid rgba(0,170,255,0.2)',
+            borderRadius:8, padding:'7px 12px', marginBottom:8 }}>
+            <div style={{ fontSize:11, color:'#00aaff', fontFamily:'var(--font-mono)', marginBottom:3 }}>발전량 추정 공식</div>
+            <div style={{ fontSize:11, color:'#c0d4e0', lineHeight:1.8, fontFamily:'var(--font-mono)' }}>
+              P = 9.8 × Q × H × η<br/>
+              Q = V / (2,000h × 3,600s) · η = 0.85
+            </div>
+          </div>
+        )}
           borderRadius:8, padding:'7px 12px', marginBottom:14 }}>
           <div style={{ fontSize:11, color:'var(--acc-teal)', fontFamily:'var(--font-mono)', marginBottom:3 }}>NOTE</div>
           <div style={{ fontSize:12, color:'#c0d4e0', lineHeight:1.6 }}>{candidate.note}</div>

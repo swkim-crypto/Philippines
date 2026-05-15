@@ -1,6 +1,7 @@
 """
-Philippines Dam Analysis — FastAPI Backend v4
+Philippines Dam Analysis — FastAPI Backend v5
 핵심: 댐 축선 기반 상류 판별 → 정확한 수몰 시뮬레이션
+신버전: 7개 댐 (하부 3 + 상부 4), 상부댐 /simulate 지원
 """
 
 import json
@@ -46,50 +47,63 @@ except ImportError as e:
     logger.warning(f"⚠️ {e}")
 
 # ════════════════════════════════════════════════
-# 댐 설정 — 축선 좌표 + 상류 방향
+# 댐 설정 — 신버전 7개 (shp 기준 확정)
+# 하부댐 3개: CBC_lower, CBBC_lower, CPC_lower
+# 상부댐 4개: CBC_upper1, CBBC_upper1, CBBC_upper2, CPC_upper
+#
 # upstream_sign: +1 = 법선벡터 방향이 상류
 #                -1 = 법선벡터 반대방향이 상류
+# drop: 양수발전 낙차(m), 상부댐만 해당
+# radius_upper: 상부댐 반경 (1.5km)
 # ════════════════════════════════════════════════
 DAM_CONFIG = {
-    "CBC1": {
-        "lat":16.688357, "lon":120.561701, "bed":238.7,
-        "p1":[120.562099,16.693558], "p2":[120.561303,16.683156],
+    # ── 하부댐 (저수댐) ───────────────────────
+    "CBC_LOWER": {
+        "lat": 16.689502, "lon": 120.560422, "bed": 210.1,
+        "p1": [120.559692, 16.688929], "p2": [120.561152, 16.690074],
         "upstream_sign": 1,
+        "dam_type": "lower", "cat": "CBC",
     },
-    "CBC2": {
-        "lat":16.685894, "lon":120.563513, "bed":234.1,
-        "p1":[120.559751,16.682262], "p2":[120.567274,16.689527],
+    "CBBC_LOWER": {
+        "lat": 16.670846, "lon": 120.574715, "bed": 303.5,
+        "p1": [120.574269, 16.670602], "p2": [120.575161, 16.671090],
         "upstream_sign": -1,
+        "dam_type": "lower", "cat": "CBBC",
     },
-    "CBBC": {
-        "lat":16.672048, "lon":120.572825, "bed":316.8,
-        "p1":[120.56651,16.669431], "p2":[120.579141,16.674665],
-        "upstream_sign": -1,
-    },
-    "CPC": {
-        "lat":16.647905, "lon":120.601756, "bed":422.3,
-        "p1":[120.593028,16.646491], "p2":[120.610485,16.649319],
-        "upstream_sign": -1,
-    },
-    "SA1_lower": {
-        "lat":16.648413, "lon":120.598798, "bed":479.3,
-        "p1":[120.607474,16.653048], "p2":[120.590123,16.643777],
+    "CPC_LOWER": {
+        "lat": 16.649049, "lon": 120.597031, "bed": 394.2,
+        "p1": [120.597568, 16.650130], "p2": [120.596494, 16.647967],
         "upstream_sign": 1,
+        "dam_type": "lower", "cat": "CPC",
     },
-    "SA1_upper": {
-        "lat":16.656707, "lon":120.613079, "bed":1124.6,
-        "p1":[120.622102,16.667096], "p2":[120.604057,16.646318],
+    # ── 상부댐 (양수댐) ───────────────────────
+    "CBC_UPPER1": {
+        "lat": 16.695180, "lon": 120.569439, "bed": 796.0,
+        "p1": [120.568558, 16.693905], "p2": [120.570319, 16.696455],
+        "upstream_sign": -1,
+        "dam_type": "upper", "cat": "CBC", "drop": 585,
+        "radius": 1500,
+    },
+    "CBBC_UPPER1": {
+        "lat": 16.679076, "lon": 120.580453, "bed": 945.9,
+        "p1": [120.579602, 16.680462], "p2": [120.581304, 16.677690],
         "upstream_sign": 1,
+        "dam_type": "upper", "cat": "CBBC", "drop": 642,
+        "radius": 1500,
     },
-    "SA2_lower": {
-        "lat":16.665908, "lon":120.576886, "bed":506.0,
-        "p1":[120.568215,16.660338], "p2":[120.585557,16.671477],
+    "CBBC_UPPER2": {
+        "lat": 16.659115, "lon": 120.557391, "bed": 910.6,
+        "p1": [120.556440, 16.658544], "p2": [120.558342, 16.659686],
         "upstream_sign": -1,
+        "dam_type": "upper", "cat": "CBBC", "drop": 607,
+        "radius": 1500,
     },
-    "SA2_upper": {
-        "lat":16.660367, "lon":120.562758, "bed":1225.6,
-        "p1":[120.54889,16.658168], "p2":[120.576628,16.662565],
+    "CPC_UPPER": {
+        "lat": 16.632673, "lon": 120.596876, "bed": 926.7,
+        "p1": [120.595274, 16.632655], "p2": [120.598478, 16.632690],
         "upstream_sign": -1,
+        "dam_type": "upper", "cat": "CPC", "drop": 532,
+        "radius": 1500,
     },
 }
 
@@ -101,7 +115,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Philippines Dam Analysis API", version="4.0.0", lifespan=lifespan)
+app = FastAPI(title="Philippines Dam Analysis API", version="5.0.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -110,8 +124,9 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 # ════════════════════════════════════════════════
 @app.get("/simulate/{dam_id}")
 def simulate(dam_id: str, height: float = Query(..., gt=0, le=300)):
-    dam_id = dam_id.upper()
-    dam = DAM_CONFIG.get(dam_id)
+    # 프론트 id (CBC_lower) → 백엔드 키 (CBC_LOWER)
+    key = dam_id.upper().replace("-", "_")
+    dam = DAM_CONFIG.get(key)
     if not dam:
         raise HTTPException(404, f"댐 '{dam_id}' 없음. 가능: {list(DAM_CONFIG.keys())}")
     if not RASTER_OK:
@@ -123,29 +138,32 @@ def simulate(dam_id: str, height: float = Query(..., gt=0, le=300)):
     fsl = round(dam["bed"] + height, 1)
 
     # 캐시 확인
-    cache_file = CACHE_DIR / f"sim_{dam_id}_{int(height)}.json"
+    cache_file = CACHE_DIR / f"sim_{key}_{int(height)}.json"
     if cache_file.exists():
         logger.info(f"캐시: {cache_file.name}")
         return JSONResponse(json.loads(cache_file.read_text()))
 
     try:
-        result = _simulate(tif, dam, dam_id, fsl)
+        result = _simulate(tif, dam, key, fsl)
         cache_file.write_text(json.dumps(result, ensure_ascii=False))
         return JSONResponse(result)
     except Exception as e:
-        logger.error(f"시뮬레이션 오류 [{dam_id}]: {e}", exc_info=True)
+        logger.error(f"시뮬레이션 오류 [{key}]: {e}", exc_info=True)
         raise HTTPException(500, str(e))
 
 
 def _simulate(tif_path, dam, dam_id, fsl):
     """
-    댐 축선 기반 상류 수몰 시뮬레이션
+    댐 축선 기반 상류 수몰 시뮬레이션 (하부댐·상부댐 공통)
     1. 분석 범위 추출 (댐 중심 ±radius)
+       - 하부댐: dam_len*4, 최대 4km
+       - 상부댐: 1.5km 고정 (candidates.js reservoirCoords와 일치)
     2. 수몰 마스크 (DEM ≤ FSL)
     3. 상류 마스크 (댐 축선 법선 기준)
     4. 상류 수몰 = 수몰 ∩ 상류
     5. 연결 성분 (댐 바로 상류 픽셀에서 시작)
     6. 폴리곤 변환 + 면적/저수량
+    7. 상부댐: 발전량 추정 (P = 9.8 × Q × H × η)
     """
     with rasterio.open(tif_path) as src:
         crs = src.crs
@@ -163,9 +181,15 @@ def _simulate(tif_path, dam, dam_id, fsl):
         cx_utm = (ax1[0] + ax2[0]) / 2
         cy_utm = (ax1[1] + ax2[1]) / 2
 
-        # 분석 반경: 최대 4km (메모리 최적화 — 5m픽셀 기준 ~10MB)
+        # 분석 반경
         dam_len = np.linalg.norm(ax2 - ax1)
-        radius  = min(max(dam_len * 4, 2000), 4000)
+        is_upper = dam.get("dam_type") == "upper"
+        if is_upper:
+            # 상부댐: 1.5km 고정 (reservoirCoords 샘플링 반경과 동일)
+            radius = dam.get("radius", 1500)
+        else:
+            # 하부댐: 기존 로직 유지
+            radius = min(max(dam_len * 4, 2000), 4000)
 
         # ── 윈도우 추출 ───────────────────────────
         left   = cx_utm - radius
@@ -206,12 +230,9 @@ def _simulate(tif_path, dam, dam_id, fsl):
         nv = np.array([-dv[1], dv[0]], dtype=np.float64)
         nv = nv / np.linalg.norm(nv)
 
-        # broadcasting 으로 meshgrid 없이 계산 (메모리 절약)
-        # sign_map[r,c] = (px[c]-ax1[0])*nv[0] + (py[r]-ax1[1])*nv[1]
         sign_map = ((px - ax1[0]) * nv[0]).reshape(1, w) + \
                    ((py - ax1[1]) * nv[1]).reshape(h, 1)
 
-        # 상류 마스크
         upstream_sign = dam["upstream_sign"]
         upstream_mask = sign_map * upstream_sign > 0
 
@@ -219,7 +240,6 @@ def _simulate(tif_path, dam, dam_id, fsl):
         flood_mask = (~np.isnan(dem)) & (dem <= fsl) & upstream_mask
 
         # ── 연결 성분 — 댐 바로 상류 시드 ────────
-        # 시드: 축선 중점에서 상류 방향으로 1픽셀~50픽셀 탐색
         pixel_size = abs(t.a)
         seed_ent   = None
         for dist_m in range(int(pixel_size), int(radius/2), int(pixel_size*2)):
@@ -232,14 +252,14 @@ def _simulate(tif_path, dam, dam_id, fsl):
                 break
 
         if seed_ent is None:
-            logger.warning(f"{dam_id}: 시드 픽셀 없음 (FSL={fsl}m, 수위가 너무 낮을 수 있음)")
-            return _empty_result(dam_id, fsl)
+            logger.warning(f"{dam_id}: 시드 픽셀 없음 (FSL={fsl}m)")
+            return _empty_result(dam_id, fsl, dam)
 
         # 연결 성분 레이블링
         labeled, _ = ndimage.label(flood_mask)
         target_label = labeled[seed_ent[0], seed_ent[1]]
         if target_label == 0:
-            return _empty_result(dam_id, fsl)
+            return _empty_result(dam_id, fsl, dam)
 
         connected = (labeled == target_label).astype(np.uint8)
 
@@ -261,13 +281,10 @@ def _simulate(tif_path, dam, dam_id, fsl):
             polys = [shape(g) for g, v in raw_shapes if v == 1]
             if polys:
                 merged = unary_union(polys)
-                # 작은 파편 제거 (전체 면적의 1% 미만)
                 min_area = area_m2 * 0.01
                 if merged.geom_type == 'MultiPolygon':
                     merged = MultiPolygon([p for p in merged.geoms if p.area >= min_area])
-                # 단순화 (픽셀 크기의 2배)
                 simplified = merged.simplify(pixel_size * 2, preserve_topology=True)
-                # UTM → WGS84
                 wgs_geom = transform_geom(crs, "EPSG:4326", mapping(simplified))
                 geojson_features = [{
                     "type": "Feature",
@@ -278,40 +295,76 @@ def _simulate(tif_path, dam, dam_id, fsl):
                     }
                 }]
 
-        logger.info(f"✅ {dam_id} FSL={fsl}m | {n_pixels}px | {area_km2}km² | {volume_mm3}Mm³")
+        # ── 발전량 추정 (상부댐만) ─────────────────
+        # P = 9.8 × Q × H × η
+        # Q: 저수량(Mm³)을 연간 유효 가동시간(2000h) 기준으로 환산
+        # η = 0.85 (펌프-터빈 효율)
+        power_mw = None
+        energy_gwh = None
+        if is_upper:
+            drop = dam.get("drop", 0)
+            if drop > 0 and volume_mm3 > 0:
+                eta = 0.85
+                op_hours = 2000  # 연간 유효 발전 시간(h)
+                q_m3s = (volume_mm3 * 1e6) / (op_hours * 3600)  # m³/s
+                power_mw  = round(9.8 * q_m3s * drop * eta / 1000, 1)   # MW
+                energy_gwh = round(power_mw * op_hours / 1000, 1)        # GWh/yr
 
-        return {
+        logger.info(
+            f"✅ {dam_id} FSL={fsl}m | {n_pixels}px | {area_km2}km² | "
+            f"{volume_mm3}Mm³" + (f" | {power_mw}MW" if power_mw else "")
+        )
+
+        result = {
             "dam_id":      dam_id,
             "fsl":         fsl,
             "area_km2":    area_km2,
             "volume_mm3":  volume_mm3,
             "n_pixels":    n_pixels,
+            "dam_type":    dam.get("dam_type", "lower"),
+            "source":      "api",
             "flood_geojson": {
                 "type":     "FeatureCollection",
                 "features": geojson_features,
-            }
+            },
         }
+        if power_mw is not None:
+            result["drop_m"]     = dam.get("drop")
+            result["power_mw"]   = power_mw
+            result["energy_gwh"] = energy_gwh
+
+        return result
 
 
-def _empty_result(dam_id, fsl):
-    return {
+def _empty_result(dam_id, fsl, dam=None):
+    result = {
         "dam_id": dam_id, "fsl": fsl,
         "area_km2": 0, "volume_mm3": 0, "n_pixels": 0,
+        "dam_type": dam.get("dam_type", "lower") if dam else "lower",
+        "source": "api",
         "flood_geojson": {"type":"FeatureCollection","features":[]},
     }
+    if dam and dam.get("dam_type") == "upper":
+        result["drop_m"]     = dam.get("drop")
+        result["power_mw"]   = 0
+        result["energy_gwh"] = 0
+    return result
 
 
 # ── 기타 ─────────────────────────────────────────
 @app.get("/")
 def root():
     tif = find_tif()
+    lower = [k for k,v in DAM_CONFIG.items() if v.get("dam_type")=="lower"]
+    upper = [k for k,v in DAM_CONFIG.items() if v.get("dam_type")=="upper"]
     return {
-        "service":   "Philippines Dam Analysis API",
-        "version":   "4.0.0",
-        "tif_ready": tif is not None,
-        "tif_path":  str(tif) if tif else None,
-        "raster_ok": RASTER_OK,
-        "dams":      list(DAM_CONFIG.keys()),
+        "service":    "Philippines Dam Analysis API",
+        "version":    "5.0.0",
+        "tif_ready":  tif is not None,
+        "tif_path":   str(tif) if tif else None,
+        "raster_ok":  RASTER_OK,
+        "lower_dams": lower,
+        "upper_dams": upper,
     }
 
 @app.get("/candidates")
@@ -331,8 +384,9 @@ def get_profile(dam_id: str):
 @app.delete("/cache/{dam_id}")
 def clear_cache(dam_id: str):
     """특정 댐 시뮬레이션 캐시 삭제 (파라미터 변경 시)"""
+    key = dam_id.upper().replace("-", "_")
     deleted = []
-    for f in CACHE_DIR.glob(f"sim_{dam_id.upper()}_*.json"):
+    for f in CACHE_DIR.glob(f"sim_{key}_*.json"):
         f.unlink(); deleted.append(f.name)
     return {"deleted": deleted}
 
