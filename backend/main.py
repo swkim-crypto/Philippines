@@ -136,9 +136,10 @@ def simulate(dam_id: str, height: float = Query(..., gt=0, le=300)):
         raise HTTPException(503, "DEM TIF 없음")
 
     fsl = round(dam["bed"] + height, 1)
+    sign = dam["upstream_sign"]
 
-    # 캐시 확인
-    cache_file = CACHE_DIR / f"sim_{key}_{int(height)}.json"
+    # 캐시 확인 — 파일명에 sign 포함으로 upstream_sign 변경 시 자동 무효화
+    cache_file = CACHE_DIR / f"sim_{key}_{int(height)}_s{sign}.json"
     if cache_file.exists():
         logger.info(f"캐시: {cache_file.name}")
         return JSONResponse(json.loads(cache_file.read_text()))

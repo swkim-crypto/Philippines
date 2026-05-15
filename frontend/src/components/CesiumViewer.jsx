@@ -8,14 +8,14 @@ Cesium.Ion.defaultAccessToken =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ5YS1lOTViYjlkZjdjNDkiLCJpZCI6MjU2NTQ1LCJpYXQiOjE3MzI2MDE0OTN9.l9OVl0-GEjkl7GxvGKD0bDjJSy3Ps1Ml9BhWQmVaABs'
 
 const CAM = {
-  // 카메라: 상류 방향으로 충분히 후퇴, pitch -15° (댐+저수지 중앙에 위치)
-  CBC_lower:   { lon:120.560422, lat:16.648970, alt:4000, heading:0   },
-  CBBC_lower:  { lon:120.561457, lat:16.632216, alt:4000, heading:20  },
-  CPC_lower:   { lon:120.581167, lat:16.606186, alt:4500, heading:20  },
-  CBC_upper1:  { lon:120.569439, lat:16.740216, alt:6000, heading:180 },
-  CBBC_upper1: { lon:120.572921, lat:16.723565, alt:6000, heading:170 },
-  CBBC_upper2: { lon:120.557391, lat:16.704151, alt:6000, heading:180 },
-  CPC_upper:   { lon:120.596876, lat:16.686718, alt:6500, heading:180 },
+  // 카메라: 하류 방향에서 상류를 바라봄, pitch -15°
+  CBC_lower:   { lon:120.560422, lat:16.626439, alt:5500, heading:0   },
+  CBBC_lower:  { lon:120.552200, lat:16.611586, alt:5500, heading:20  },
+  CPC_lower:   { lon:120.572910, lat:16.585556, alt:6000, heading:20  },
+  CBC_upper1:  { lon:120.569439, lat:16.767252, alt:7500, heading:180 },
+  CBBC_upper1: { lon:120.567388, lat:16.750053, alt:7500, heading:170 },
+  CBBC_upper2: { lon:120.557391, lat:16.731187, alt:7500, heading:180 },
+  CPC_upper:   { lon:120.596876, lat:16.713754, alt:8000, heading:180 },
 }
 
 export function getDamLabel(id) {
