@@ -2,13 +2,32 @@ import React from 'react'
 import { PRIORITY_CONFIG, ANALYSIS_INFO } from '../data/candidates.js'
 
 const REGION_ORDER = ['Abra Basin']
+const REGION_LABELS = { 'Abra Basin': 'Abra 유역' }
 
-const REGION_LABELS = {
-  'Abra Basin': 'Abra 유역',
+// ── ID → 표시 이름 변환 ────────────────────────────────
+// candidates.js의 id를 "Category-상하부" 형식으로 변환
+const ID_LABEL = {
+  'CBC1':      'CBC-하부1',
+  'CBC2':      'CBC-하부2',
+  'CBBC':      'CBBC-하부',
+  'CPC':       'CPC-하부',
+  'SA1_lower': 'SA1-하부',
+  'SA1_upper': 'SA1-상부',
+  'SA2_lower': 'SA2-하부',
+  'SA2_upper': 'SA2-상부',
+  // shapefile 상부댐 (추후 추가 시)
+  'CBC_upper1':  'CBC-상부1',
+  'CBC_upper2':  'CBC-상부2',
+  'CBBC_upper1': 'CBBC-상부1',
+  'CBBC_upper2': 'CBBC-상부2',
+  'CPC_upper':   'CPC-상부',
+}
+
+export function getDamLabel(id) {
+  return ID_LABEL[id] ?? id
 }
 
 export default function Sidebar({ candidates, selected, onSelect, mobile, showFlood, onToggleFlood }) {
-  // ── region별 그룹핑 ─────────────────────────────
   const grouped = REGION_ORDER.reduce((acc, r) => {
     acc[r] = (candidates ?? []).filter(c => c.region === r)
     return acc
@@ -16,17 +35,17 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
 
   return (
     <div style={{
-      width:           mobile ? '100%' : 252,
-      background:      'var(--bg-panel)',
-      borderRight:     mobile ? 'none' : '1px solid var(--border)',
-      display:         'flex',
-      flexDirection:   'column',
-      overflow:        'hidden',
-      flexShrink:      0,
-      height:          '100%',
+      width:         mobile ? '100%' : 252,
+      background:    'var(--bg-panel)',
+      borderRight:   mobile ? 'none' : '1px solid var(--border)',
+      display:       'flex',
+      flexDirection: 'column',
+      overflow:      'hidden',
+      flexShrink:    0,
+      height:        '100%',
     }}>
 
-      {/* ── 프로젝트 타이틀 + 수몰 토글 ── */}
+      {/* ── 타이틀 + 수몰 토글 ── */}
       {!mobile && (
         <div style={{ padding: '12px 18px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
@@ -37,22 +56,16 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
               댐 후보지 분석 시스템
             </div>
           </div>
-          {/* 수몰지역 토글 버튼 */}
           <button
             onClick={onToggleFlood}
             title="수몰지역 표시/숨김"
             style={{
-              marginTop: 2,
-              padding: '3px 8px',
-              fontSize: 10,
+              marginTop: 2, padding: '3px 8px', fontSize: 10,
               fontFamily: 'var(--font-mono)',
               background: showFlood ? 'rgba(26,111,255,0.25)' : 'transparent',
               color:      showFlood ? '#55aaff' : 'var(--text-sec)',
               border:    `1px solid ${showFlood ? '#55aaff' : 'rgba(255,255,255,0.15)'}`,
-              borderRadius: 3,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s',
+              borderRadius: 3, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s',
             }}
           >
             💧 수몰
@@ -78,7 +91,7 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
         </div>
       </div>
 
-      {/* ── 후보지 목록 헤더 ── */}
+      {/* ── 목록 헤더 ── */}
       <div style={{ padding: mobile ? '8px 14px 4px' : '8px 18px 6px', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
         <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-sec)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           후보지 목록
@@ -96,42 +109,37 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
 
           return (
             <div key={region}>
-              {/* 지역 헤더 */}
               <div style={{
-                padding:         mobile ? '10px 14px 4px' : '10px 18px 5px',
-                fontSize:        10,
-                color:           'var(--text-sec)',
-                fontFamily:      'var(--font-mono)',
-                letterSpacing:   '0.1em',
-                textTransform:   'uppercase',
-                borderTop:       '1px solid var(--border)',
-                background:      'rgba(0,0,0,0.15)',
+                padding: mobile ? '10px 14px 4px' : '10px 18px 5px',
+                fontSize: 10, color: 'var(--text-sec)', fontFamily: 'var(--font-mono)',
+                letterSpacing: '0.1em', textTransform: 'uppercase',
+                borderTop: '1px solid var(--border)', background: 'rgba(0,0,0,0.15)',
               }}>
                 {REGION_LABELS[region]}
                 <span style={{ marginLeft: 8, opacity: 0.5 }}>({items.length})</span>
               </div>
 
-              {/* 후보지 아이템 */}
               {items.map(c => {
                 const cfg   = PRIORITY_CONFIG[c.priority] ?? { color: '#888' }
                 const isSel = selected?.id === c.id
+                const label = getDamLabel(c.id)   // ← "CBC-하부1" 형식
 
                 return (
                   <div
                     key={c.id}
                     onClick={() => onSelect(c)}
                     style={{
-                      padding:      mobile ? '13px 14px' : '10px 16px',
-                      cursor:       'pointer',
-                      background:   isSel ? 'var(--bg-hover)' : 'transparent',
-                      borderLeft:   isSel ? `3px solid ${cfg.color}` : '3px solid transparent',
-                      transition:   'background 0.15s',
-                      display:      'flex',
-                      flexDirection:'column',
-                      gap:          4,
+                      padding:       mobile ? '13px 14px' : '10px 16px',
+                      cursor:        'pointer',
+                      background:    isSel ? 'var(--bg-hover)' : 'transparent',
+                      borderLeft:    isSel ? `3px solid ${cfg.color}` : '3px solid transparent',
+                      transition:    'background 0.15s',
+                      display:       'flex',
+                      flexDirection: 'column',
+                      gap:           4,
                     }}
                   >
-                    {/* ID + 우선순위 배지 */}
+                    {/* 이름 + 우선순위 배지 */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{
                         fontFamily: 'var(--font-mono)',
@@ -139,17 +147,13 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
                         fontWeight: 700,
                         color:      isSel ? cfg.color : 'var(--text-pri)',
                       }}>
-                        {c.id}
+                        {label}
                       </span>
                       <span style={{
-                        fontSize:   10,
-                        padding:    '2px 8px',
-                        background: `${cfg.color}22`,
-                        color:      cfg.color,
-                        border:     `1px solid ${cfg.color}66`,
-                        borderRadius: 10,
-                        fontFamily: 'var(--font-mono)',
-                        fontWeight: 700,
+                        fontSize: 10, padding: '2px 8px',
+                        background: `${cfg.color}22`, color: cfg.color,
+                        border: `1px solid ${cfg.color}66`,
+                        borderRadius: 10, fontFamily: 'var(--font-mono)', fontWeight: 700,
                       }}>
                         {c.priority}
                       </span>
@@ -162,8 +166,7 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
 
                     {/* 5Mm³ 달성 높이 */}
                     <div style={{
-                      fontSize: 10,
-                      fontFamily: 'var(--font-mono)',
+                      fontSize: 10, fontFamily: 'var(--font-mono)',
                       color: c.hMin5 <= 60 ? '#1D9E75' : c.hMin5 <= 90 ? '#BA7517' : '#E05C5C',
                     }}>
                       5Mm³: H≥{c.hMin5}m {c.hMin5 <= 60 ? '✓' : c.hMin5 <= 90 ? '△' : '⚠'}
@@ -175,7 +178,6 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
           )
         })}
 
-        {/* 빈 상태 */}
         {(candidates ?? []).length === 0 && (
           <div style={{ padding: '24px 18px', textAlign: 'center', fontSize: 12, color: 'var(--text-sec)', fontFamily: 'var(--font-mono)' }}>
             후보지 로딩 중...
