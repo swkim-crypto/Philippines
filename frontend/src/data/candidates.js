@@ -14,7 +14,7 @@ export const ANALYSIS_INFO = {
   criterion: '최소 저수량 5Mm³',
 }
 
-export const HEIGHT_STEPS = [20, 30, 40, 50, 60, 70, 80, 90, 100, 120]
+export const HEIGHT_STEPS = [35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85]
 
 export const PRIORITY_CONFIG = {
   '최우선':  { color: '#00c4b4', rank: 1 },

@@ -10,7 +10,7 @@ export default function App() {
   // candidates는 로컬 고정 — 백엔드 /candidates fetch 제거
   // (구버전 캐시가 SA1/SA2 등을 덮어쓰는 문제 근본 해결)
   const [selected,   setSelected]   = useState(null)
-  const [heightM,    setHeightM]    = useState(50)
+  const [heightM,    setHeightM]    = useState(60)
   const [showFlood,  setShowFlood]  = useState(false)
   const [flyTo,      setFlyTo]      = useState(null)   // { id, ts } — 카메라 이동 트리거
 
@@ -57,7 +57,7 @@ export default function App() {
   // ── 댐 선택 ──────────────────────────────────
   const handleSelect = (c) => {
     setSelected(c)
-    const h = c.baseH ?? 50
+    const h = 60
     setHeightM(h)
     setShowFlood(false)
     setSimResult(null)

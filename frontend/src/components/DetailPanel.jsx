@@ -147,7 +147,7 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
               </div>
             )}
           </div>
-          <input type="range" min={20} max={120} step={10} value={heightM}
+          <input type="range" min={35} max={85} step={5} value={heightM}
             onChange={e => onHeightChange(Number(e.target.value))}
             style={{ width:'100%', marginBottom:8, accentColor:'var(--acc-teal)', cursor:'pointer' }}
           />
