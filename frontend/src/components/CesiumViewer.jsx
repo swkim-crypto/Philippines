@@ -120,7 +120,7 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
       markerEntRef.current.push(v.entities.add({
         position: Cesium.Cartesian3.fromDegrees(c.lon, c.lat),
         billboard: {
-          image: `data:image/svg+xml;base64,${btoa(svg)}`,
+          image: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
           width: size, height: size,
           verticalOrigin:  Cesium.VerticalOrigin.BOTTOM,
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
