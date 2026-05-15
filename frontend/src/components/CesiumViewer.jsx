@@ -36,7 +36,7 @@ const C_UPPER_OUTL  = Cesium.Color.fromCssColorString('#80ffff')
 const C_UPPER_FLOOD = Cesium.Color.fromCssColorString('#0d47a1').withAlpha(0.50)
 const C_UPPER_STR   = Cesium.Color.fromCssColorString('#40c4ff').withAlpha(0.80)
 
-export default function CesiumViewer({ candidates, selected, heightM, showFlood, simResult, onSelect }) {
+export default function CesiumViewer({ candidates, selected, heightM, showFlood, simResult, flyTo, onSelect }) {
   const containerRef = useRef(null)
   const viewerRef    = useRef(null)
   const damEntRef    = useRef([])
@@ -229,9 +229,10 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
   }, [selected])
 
   useEffect(()=>{ drawMarkers() }, [drawMarkers])
-  useEffect(()=>{ drawMarkers(); drawDam(); drawFlood(); if(selected) flyToSelected() }, [selected?.id]) // eslint-disable-line
-  useEffect(()=>{ drawDam(); drawFlood() }, [heightM])                                   // eslint-disable-line
-  useEffect(()=>{ drawFlood() }, [showFlood, simResult?.flood_geojson])                  // eslint-disable-line
+  useEffect(()=>{ drawMarkers(); drawDam(); drawFlood() }, [selected?.id])           // eslint-disable-line
+  useEffect(()=>{ if(flyTo) flyToSelected() }, [flyTo])                              // eslint-disable-line
+  useEffect(()=>{ drawDam(); drawFlood() }, [heightM])                               // eslint-disable-line
+  useEffect(()=>{ drawFlood() }, [showFlood, simResult?.flood_geojson])              // eslint-disable-line
 
   return (
     <div ref={containerRef} style={{flex:1, position:'relative', background:'#000'}}>
