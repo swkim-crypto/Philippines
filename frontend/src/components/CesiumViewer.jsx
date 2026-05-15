@@ -110,17 +110,17 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
       const isSel = selected?.id === c.id
       const color = isSel ? '#00c4b4' : '#f0a500'
       const size  = isSel ? 52 : 38
-      const label = getDamLabel(c.id)
+      // SVG 마커: 한글 제거 (btoa Latin1 제한) → ID만 표시
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52">
         <circle cx="26" cy="20" r="16" fill="${color}" fill-opacity="0.92" stroke="#fff" stroke-width="1.5"/>
-        <text x="26" y="25" text-anchor="middle" font-size="7" font-weight="700"
-          font-family="monospace" fill="#050c14">${label}</text>
+        <text x="26" y="25" text-anchor="middle" font-size="8.5" font-weight="700"
+          font-family="monospace" fill="#050c14">${c.id}</text>
         <polygon points="26,44 19,32 33,32" fill="${color}" fill-opacity="0.92"/>
       </svg>`
       markerEntRef.current.push(v.entities.add({
         position: Cesium.Cartesian3.fromDegrees(c.lon, c.lat),
         billboard: {
-          image: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+          image: `data:image/svg+xml;base64,${btoa(svg)}`,
           width: size, height: size,
           verticalOrigin:  Cesium.VerticalOrigin.BOTTOM,
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
