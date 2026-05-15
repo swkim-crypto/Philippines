@@ -7,7 +7,7 @@ Cesium.Ion.defaultAccessToken =
   import.meta.env.VITE_CESIUM_TOKEN ??
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ5YS1lOTViYjlkZjdjNDkiLCJpZCI6MjU2NTQ1LCJpYXQiOjE3MzI2MDE0OTN9.l9OVl0-GEjkl7GxvGKD0bDjJSy3Ps1Ml9BhWQmVaABs'
 
-// ── 댐별 카메라 위치 (하류→댐 바라보기, Python 계산) ─
+// ── 댐별 카메라 위치 ─────────────────────────────
 const CAM = {
   CBC1:      { lon:120.58111, lat:16.66650, alt:2238, heading:-30.0 },
   CBC2:      { lon:120.57754, lat:16.65511, alt:2234, heading:-10.0 },
@@ -19,10 +19,23 @@ const CAM = {
   SA2_upper: { lon:120.56064, lat:16.68284, alt:3225, heading:180.0 },
 }
 
+// ── 댐 실제 축선 좌표 (KMZ 기반) ────────────────
+// wallPts가 없는 댐을 위한 fallback
+const DAM_AXES = {
+  CBC1:      { p1:[120.570046,16.694348], p2:[120.564047,16.685655] },
+  CBC2:      { p1:[120.580753,16.680504], p2:[120.564551,16.683177] },
+  CBBC:      { p1:[120.558171,16.658711], p2:[120.575232,16.669352] },
+  CPC:       { p1:[120.597840,16.633804], p2:[120.604583,16.645846] },
+  SA1_lower: { p1:[120.600647,16.648432], p2:[120.600691,16.647377] },
+  SA1_upper: { p1:[120.615876,16.659307], p2:[120.613640,16.652956] },
+  SA2_lower: { p1:[120.577391,16.664078], p2:[120.580328,16.665107] },
+  SA2_upper: { p1:[120.563158,16.657650], p2:[120.558132,16.653742] },
+}
+
 const DAM_COLOR  = Cesium.Color.fromCssColorString('#f0a500').withAlpha(0.92)
 const DAM_OUTL   = Cesium.Color.fromCssColorString('#ffd700')
-const FLOOD_FILL = Cesium.Color.fromCssColorString('#1a6fff').withAlpha(0.52)
-const FLOOD_STR  = Cesium.Color.fromCssColorString('#55aaff').withAlpha(0.80)
+const FLOOD_FILL = Cesium.Color.fromCssColorString('#1a6fff').withAlpha(0.45)
+const FLOOD_STR  = Cesium.Color.fromCssColorString('#55aaff').withAlpha(0.90)
 
 export default function CesiumViewer({ candidates, selected, heightM, showFlood, simResult, onSelect }) {
   const containerRef = useRef(null)
@@ -31,7 +44,7 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
   const floodEntRef  = useRef([])
   const markerEntRef = useRef([])
 
-  // ── 초기화 (1회) ────────────────────────────────
+  // ── 초기화 ──────────────────────────────────────
   useEffect(() => {
     let viewer
     ;(async () => {
@@ -55,17 +68,11 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
         viewer.scene.globe.depthTestAgainstTerrain = false
         viewerRef.current = viewer
 
-        // 초기 뷰: Abra 유역 전체
         viewer.camera.setView({
           destination: Cesium.Cartesian3.fromDegrees(120.58, 16.60, 50000),
-          orientation: {
-            heading: Cesium.Math.toRadians(0),
-            pitch:   Cesium.Math.toRadians(-30),
-            roll:    0,
-          },
+          orientation: { heading:0, pitch:Cesium.Math.toRadians(-30), roll:0 },
         })
 
-        // 클릭 선택
         const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas)
         handler.setInputAction(click => {
           const picked = viewer.scene.pick(click.position)
@@ -76,21 +83,15 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
           }
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
-      } catch (err) {
-        console.error('Cesium 초기화 오류:', err)
-      }
+      } catch (err) { console.error('Cesium 초기화 오류:', err) }
     })()
-    return () => {
-      if (viewer && !viewer.isDestroyed()) viewer.destroy()
-      viewerRef.current = null
-    }
+    return () => { if (viewer && !viewer.isDestroyed()) viewer.destroy(); viewerRef.current = null }
   }, []) // eslint-disable-line
 
-  // ── entity 목록 제거 헬퍼 ───────────────────────
   const clearEnts = (ref) => {
     const v = viewerRef.current
     if (!v) return
-    ref.current.forEach(e => { try { v.entities.remove(e) } catch (_) {} })
+    ref.current.forEach(e => { try { v.entities.remove(e) } catch(_){} })
     ref.current = []
   }
 
@@ -123,44 +124,74 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
     })
   }, [candidates, selected])
 
-  // ── 댐 벽체 (wallPts 지형 맞춤 Wall) ────────────
+  // ── 댐 벽체 ──────────────────────────────────────
+  // wallPts(DEM 샘플) 있으면 지형 맞춤 Wall
+  // 없으면 DAM_AXES 축선으로 단순 Wall
   const drawDam = useCallback(() => {
     const v = viewerRef.current
-    if (!v) return
+    if (!v || !selected) return
     clearEnts(damEntRef)
-    if (!selected?.wallPts?.length) return
 
-    const fsl  = calcFsl(selected, heightM)
-    const pts  = selected.wallPts
-    const lons = pts.map(p => p[0])
-    const lats = pts.map(p => p[1])
-    const terr = pts.map(p => p[2])
+    const fsl = calcFsl(selected, heightM)
+    const bed = selected.bed ?? (fsl - heightM)
+    const axis = DAM_AXES[selected.id]
 
-    // Wall entity: 상단=FSL, 하단=지형고도
-    damEntRef.current.push(v.entities.add({
-      wall: {
-        positions:      Cesium.Cartesian3.fromDegreesArray(lons.flatMap((lo, i) => [lo, lats[i]])),
-        maximumHeights: pts.map(() => fsl),
-        minimumHeights: terr,
-        material:       DAM_COLOR,
-        outline:        true,
-        outlineColor:   DAM_OUTL,
-        outlineWidth:   2,
-      },
-    }))
+    if (selected.wallPts?.length >= 2) {
+      // wallPts: [[lon, lat, terrainElev], ...]
+      const pts  = selected.wallPts
+      const lons = pts.map(p => p[0])
+      const lats = pts.map(p => p[1])
+      const terr = pts.map(p => p[2])
 
-    // 마루 강조선
-    damEntRef.current.push(v.entities.add({
-      polyline: {
-        positions: Cesium.Cartesian3.fromDegreesArrayHeights(
-          lons.flatMap((lo, i) => [lo, lats[i], fsl])
-        ),
-        width: 4,
-        material: new Cesium.PolylineOutlineMaterialProperty({
-          color: DAM_OUTL, outlineWidth: 1, outlineColor: Cesium.Color.BLACK,
-        }),
-      },
-    }))
+      damEntRef.current.push(v.entities.add({
+        wall: {
+          positions:      Cesium.Cartesian3.fromDegreesArray(lons.flatMap((lo,i)=>[lo,lats[i]])),
+          maximumHeights: pts.map(() => fsl),
+          minimumHeights: terr,
+          material:       DAM_COLOR,
+          outline:        true,
+          outlineColor:   DAM_OUTL,
+          outlineWidth:   2,
+        },
+      }))
+      // 마루 강조선
+      damEntRef.current.push(v.entities.add({
+        polyline: {
+          positions: Cesium.Cartesian3.fromDegreesArrayHeights(
+            lons.flatMap((lo,i) => [lo, lats[i], fsl])
+          ),
+          width: 4,
+          material: new Cesium.PolylineOutlineMaterialProperty({
+            color: DAM_OUTL, outlineWidth:1, outlineColor: Cesium.Color.BLACK,
+          }),
+        },
+      }))
+
+    } else if (axis) {
+      // DAM_AXES 축선으로 단순 수직 Wall
+      const [x1,y1] = axis.p1
+      const [x2,y2] = axis.p2
+      damEntRef.current.push(v.entities.add({
+        wall: {
+          positions:      Cesium.Cartesian3.fromDegreesArray([x1,y1, x2,y2]),
+          maximumHeights: [fsl, fsl],
+          minimumHeights: [bed, bed],
+          material:       DAM_COLOR,
+          outline:        true,
+          outlineColor:   DAM_OUTL,
+          outlineWidth:   2,
+        },
+      }))
+      damEntRef.current.push(v.entities.add({
+        polyline: {
+          positions: Cesium.Cartesian3.fromDegreesArrayHeights([x1,y1,fsl, x2,y2,fsl]),
+          width: 4,
+          material: new Cesium.PolylineOutlineMaterialProperty({
+            color: DAM_OUTL, outlineWidth:1, outlineColor: Cesium.Color.BLACK,
+          }),
+        },
+      }))
+    }
 
     // FSL 레이블
     damEntRef.current.push(v.entities.add({
@@ -178,22 +209,28 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
     }))
   }, [selected, heightM])
 
-  // ── 저수면 (API GeoJSON 우선, fallback: 내장 좌표) ─
-  const drawFlood = useCallback(async () => {
+  // ── 수몰면 — FSL 고도의 수평 평면 ───────────────
+  // classificationType 제거 → extrudedHeight 없이 height=FSL로 수평면 표시
+  const drawFlood = useCallback(() => {
     const v = viewerRef.current
     if (!v) return
     clearEnts(floodEntRef)
     if (!showFlood || !selected) return
 
-    const addPolygon = (positions) => {
+    const fsl = calcFsl(selected, heightM)
+
+    const addFloodPolygon = (ring) => {
+      // FSL 고도의 수평 평면 — height로 고도 지정, extrudedHeight 없음
+      const positions = ring.map(([lo, la]) => Cesium.Cartesian3.fromDegrees(lo, la, fsl))
       floodEntRef.current.push(v.entities.add({
         polygon: {
-          hierarchy:          Cesium.Cartesian3.fromDegreesArray(positions),
-          material:           FLOOD_FILL,
-          outline:            true,
-          outlineColor:       FLOOD_STR,
-          outlineWidth:       2,
-          classificationType: Cesium.ClassificationType.TERRAIN,
+          hierarchy:     new Cesium.PolygonHierarchy(positions),
+          material:      FLOOD_FILL,
+          outline:       true,
+          outlineColor:  FLOOD_STR,
+          outlineWidth:  2,
+          height:        fsl,      // 수면 고도 고정
+          perPositionHeight: false, // 모든 점 같은 고도
         },
       }))
     }
@@ -209,22 +246,18 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
           : geom.type === 'MultiPolygon'
             ? geom.coordinates.flat()
             : []
-        rings.forEach(ring => {
-          addPolygon(ring.flatMap(([lo, la]) => [lo, la]))
-        })
+        rings.forEach(ring => addFloodPolygon(ring))
       }
       return
     }
 
-    // 2순위: 내장 reservoirCoords (기준 수위 폴리곤)
+    // 2순위: 내장 reservoirCoords
     if (selected.reservoirCoords?.length) {
-      selected.reservoirCoords.forEach(ring => {
-        addPolygon(ring.flatMap(([lo, la]) => [lo, la]))
-      })
+      selected.reservoirCoords.forEach(ring => addFloodPolygon(ring))
     }
-  }, [selected, showFlood, simResult])
+  }, [selected, showFlood, simResult, heightM])
 
-  // ── 카메라 이동 (댐 선택 시만) ──────────────────
+  // ── 카메라 ───────────────────────────────────────
   const flyToSelected = useCallback(() => {
     const v   = viewerRef.current
     const cam = CAM[selected?.id]
@@ -240,36 +273,30 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
     })
   }, [selected])
 
-  // ── 리액션: candidates/selected 변경 → 마커 갱신 ─
+  // ── 리액션 ───────────────────────────────────────
   useEffect(() => { drawMarkers() }, [drawMarkers])
 
-  // ── 리액션: 댐 선택 변경 → 카메라 이동 + 댐/수몰 갱신
   useEffect(() => {
-    drawMarkers()
-    drawDam()
-    drawFlood()
+    drawMarkers(); drawDam(); drawFlood()
     if (selected) flyToSelected()
   }, [selected?.id]) // eslint-disable-line
 
-  // ── 리액션: 높이 변경 → 댐/수몰만 갱신 (카메라 이동 없음)
   useEffect(() => {
-    drawDam()
-    drawFlood()
+    drawDam(); drawFlood()
   }, [heightM]) // eslint-disable-line
 
-  // ── 리액션: 수몰 토글 + simResult 갱신
   useEffect(() => {
     drawFlood()
   }, [showFlood, simResult?.flood_geojson]) // eslint-disable-line
 
   return (
-    <div ref={containerRef} style={{ flex: 1, position: 'relative', background: '#000' }}>
+    <div ref={containerRef} style={{ flex:1, position:'relative', background:'#000' }}>
       <div style={{
-        position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
-        background: 'rgba(5,12,20,0.80)', border: '1px solid rgba(0,160,200,0.2)',
-        borderRadius: 4, padding: '5px 14px',
-        fontSize: 10, color: 'rgba(160,200,220,0.7)', fontFamily: 'monospace',
-        pointerEvents: 'none', zIndex: 10, whiteSpace: 'nowrap',
+        position:'absolute', bottom:12, left:'50%', transform:'translateX(-50%)',
+        background:'rgba(5,12,20,0.80)', border:'1px solid rgba(0,160,200,0.2)',
+        borderRadius:4, padding:'5px 14px',
+        fontSize:10, color:'rgba(160,200,220,0.7)', fontFamily:'monospace',
+        pointerEvents:'none', zIndex:10, whiteSpace:'nowrap',
       }}>
         좌클릭 마커 선택 · 우클릭 드래그 회전 · 스크롤 줌
       </div>
