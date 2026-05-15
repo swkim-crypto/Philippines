@@ -271,6 +271,7 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
             </div>
           </div>
         )}
+        <div style={{ background:'rgba(0,196,180,0.06)', border:'1px solid rgba(0,196,180,0.15)',
           borderRadius:8, padding:'7px 12px', marginBottom:14 }}>
           <div style={{ fontSize:11, color:'var(--acc-teal)', fontFamily:'var(--font-mono)', marginBottom:3 }}>NOTE</div>
           <div style={{ fontSize:12, color:'#c0d4e0', lineHeight:1.6 }}>{candidate.note}</div>
