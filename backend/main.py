@@ -101,7 +101,7 @@ DAM_CONFIG = {
     "CPC_UPPER": {
         "lat": 16.632673, "lon": 120.596876, "bed": 926.7,
         "p1": [120.595274, 16.632655], "p2": [120.598478, 16.632690],
-        "upstream_sign": -1,
+        "upstream_sign": 1,
         "dam_type": "upper", "cat": "CPC", "drop": 532,
         "radius": 1500,
     },

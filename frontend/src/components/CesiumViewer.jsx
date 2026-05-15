@@ -8,15 +8,14 @@ Cesium.Ion.defaultAccessToken =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ5YS1lOTViYjlkZjdjNDkiLCJpZCI6MjU2NTQ1LCJpYXQiOjE3MzI2MDE0OTN9.l9OVl0-GEjkl7GxvGKD0bDjJSy3Ps1Ml9BhWQmVaABs'
 
 const CAM = {
-  // 카메라 위치: 상류 방향으로 3~5km 후퇴, 고도 3500~5500m
-  // heading: 댐을 향해 바라보는 방향, pitch: -20° (댐+저수지 전체가 시야에 들어오도록)
-  CBC_lower:   { lon:120.560422, lat:16.657970, alt:3500, heading:0   },
-  CBBC_lower:  { lon:120.563457, lat:16.641216, alt:3500, heading:20  },
-  CPC_lower:   { lon:120.584167, lat:16.615186, alt:4000, heading:20  },
-  CBC_upper1:  { lon:120.569439, lat:16.731216, alt:5000, heading:180 },
-  CBBC_upper1: { lon:120.573921, lat:16.714565, alt:5000, heading:170 },
-  CBBC_upper2: { lon:120.557391, lat:16.695151, alt:5000, heading:180 },
-  CPC_upper:   { lon:120.596876, lat:16.677718, alt:5500, heading:180 },
+  // 카메라: 상류 방향으로 충분히 후퇴, pitch -15° (댐+저수지 중앙에 위치)
+  CBC_lower:   { lon:120.560422, lat:16.648970, alt:4000, heading:0   },
+  CBBC_lower:  { lon:120.561457, lat:16.632216, alt:4000, heading:20  },
+  CPC_lower:   { lon:120.581167, lat:16.606186, alt:4500, heading:20  },
+  CBC_upper1:  { lon:120.569439, lat:16.740216, alt:6000, heading:180 },
+  CBBC_upper1: { lon:120.572921, lat:16.723565, alt:6000, heading:170 },
+  CBBC_upper2: { lon:120.557391, lat:16.704151, alt:6000, heading:180 },
+  CPC_upper:   { lon:120.596876, lat:16.686718, alt:6500, heading:180 },
 }
 
 export function getDamLabel(id) {
@@ -225,7 +224,7 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
     if (!v||!cam) return
     v.camera.flyTo({
       destination: Cesium.Cartesian3.fromDegrees(cam.lon, cam.lat, cam.alt),
-      orientation: { heading:Cesium.Math.toRadians(cam.heading), pitch:Cesium.Math.toRadians(-20), roll:0 },
+      orientation: { heading:Cesium.Math.toRadians(cam.heading), pitch:Cesium.Math.toRadians(-15), roll:0 },
       duration:1.5,
     })
   }, [selected])
