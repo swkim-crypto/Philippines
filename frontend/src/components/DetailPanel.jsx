@@ -147,7 +147,7 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
               </div>
             )}
           </div>
-          <input type="range" min={20} max={120} step={10} value={heightM}
+          <input type="range" min={35} max={85} step={5} value={heightM}
             onChange={e => onHeightChange(Number(e.target.value))}
             style={{ width:'100%', marginBottom:8, accentColor:'var(--acc-teal)', cursor:'pointer' }}
           />
@@ -190,13 +190,39 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
           <StatCard label="수몰 면적"     value={stats.a}    unit="km²"  highlight={stats.fromApi} />
           <StatCard label="E-ratio"       value={stats.er}   unit="Mm³/km²" sub="저수량/수몰면적" />
           <StatCard label="증발 손실"     value={stats.evap} unit="Mm³/yr"  sub="1,500mm/yr" />
-          {candidate.damType === 'upper' && <>
+          {candidate.damType === 'upper' &&
             <StatCard label="낙차 (Net Head)" value={candidate.drop ?? '—'} unit="m"
-              sub={`Bed ${candidate.bed}m → 하부댐`} highlight />
-            <StatCard label="추정 발전용량"   value={stats.power}  unit="MW"
-              sub={stats.energy != null ? `${stats.energy} GWh/yr` : '2,000h/yr 기준'} highlight />
-          </>}
+              sub={`Bed ${candidate.bed}m EL`} highlight />
+          }
         </div>
+
+        {/* 발전량 — 상부댐 전용 강조 블록 */}
+        {candidate.damType === 'upper' && (
+          <div style={{
+            background:'rgba(240,165,0,0.10)', border:'2px solid rgba(240,165,0,0.55)',
+            borderRadius:10, padding:'10px 14px', marginBottom:8,
+          }}>
+            <div style={{ fontSize:11, color:'#f0a500', fontFamily:'var(--font-mono)',
+              letterSpacing:'0.1em', marginBottom:6 }}>⚡ 추정 발전량</div>
+            <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:4 }}>
+              <span style={{ fontFamily:'var(--font-mono)', fontSize:28, fontWeight:700,
+                color:'#f0a500', lineHeight:1 }}>
+                {stats.power ?? '—'}
+              </span>
+              {stats.power != null && <span style={{ fontSize:14, color:'#ffd580', fontWeight:600 }}>MW</span>}
+              {stats.energy != null && (
+                <span style={{ fontSize:13, color:'#ffd580', fontFamily:'var(--font-mono)', marginLeft:4 }}>
+                  / {stats.energy} GWh/yr
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize:10, color:'rgba(240,165,0,0.65)', fontFamily:'var(--font-mono)', lineHeight:1.6 }}>
+              P = 9.8 × Q × H × η &nbsp;|&nbsp; η=0.85 &nbsp;|&nbsp; 연간 2,000h 기준<br/>
+              Q = {stats.v != null ? ((stats.v * 1e6) / (2000 * 3600)).toFixed(2) : '—'} m³/s
+              &nbsp;|&nbsp; H = {candidate.drop ?? '—'} m
+            </div>
+          </div>
+        )}
 
         {/* 프로파일 차트 */}
         {!approx
@@ -260,17 +286,6 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
           </>
         )}
 
-        {/* 발전량 공식 NOTE (상부댐만) */}
-        {candidate.damType === 'upper' && (
-          <div style={{ background:'rgba(0,170,255,0.06)', border:'1px solid rgba(0,170,255,0.2)',
-            borderRadius:8, padding:'7px 12px', marginBottom:8 }}>
-            <div style={{ fontSize:11, color:'#00aaff', fontFamily:'var(--font-mono)', marginBottom:3 }}>발전량 추정 공식</div>
-            <div style={{ fontSize:11, color:'#c0d4e0', lineHeight:1.8, fontFamily:'var(--font-mono)' }}>
-              P = 9.8 × Q × H × η<br/>
-              Q = V / (2,000h × 3,600s) · η = 0.85
-            </div>
-          </div>
-        )}
         <div style={{ background:'rgba(0,196,180,0.06)', border:'1px solid rgba(0,196,180,0.15)',
           borderRadius:8, padding:'7px 12px', marginBottom:14 }}>
           <div style={{ fontSize:11, color:'var(--acc-teal)', fontFamily:'var(--font-mono)', marginBottom:3 }}>NOTE</div>
