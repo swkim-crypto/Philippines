@@ -28,17 +28,17 @@ function getLinkedDams(candidate) {
   }
 }
 
-function StatCard({ label, value, unit, sub, highlight }) {
+function StatCard({ label, value, unit, sub, highlight, yellow }) {
   return (
-    <div style={{ background:'var(--bg-card)', border:`1px solid ${highlight?'rgba(26,111,255,0.5)':'var(--border)'}`, borderRadius:6, padding:'6px 10px' }}>
-      <div style={{ fontSize:11, color:'#a0bcd0', fontFamily:'var(--font-mono)', marginBottom:2 }}>{label}</div>
+    <div style={{ background:'var(--bg-card)', border:`1px solid ${highlight?'rgba(26,111,255,0.5)':yellow?'rgba(240,165,0,0.5)':'var(--border)'}`, borderRadius:6, padding:'6px 10px' }}>
+      <div style={{ fontSize:11, color: yellow?'#f0a500':'#a0bcd0', fontFamily:'var(--font-mono)', marginBottom:2 }}>{label}</div>
       <div style={{ display:'flex', alignItems:'baseline', gap:3 }}>
-        <span style={{ fontSize:17, fontWeight:700, fontFamily:'var(--font-mono)', color: value==null?'#5a7a90':'#e8eef4' }}>
+        <span style={{ fontSize: yellow?20:17, fontWeight:700, fontFamily:'var(--font-mono)', color: value==null?'#5a7a90': yellow?'#f0a500':'#e8eef4' }}>
           {value ?? '—'}
         </span>
-        {value!=null && <span style={{ fontSize:12, color:'#c0d4e0' }}>{unit}</span>}
+        {value!=null && <span style={{ fontSize:12, color: yellow?'#ffd580':'#c0d4e0', fontWeight: yellow?600:400 }}>{unit}</span>}
       </div>
-      {sub && <div style={{ fontSize:11, color:'#8aafc8', marginTop:1 }}>{sub}</div>}
+      {sub && <div style={{ fontSize:11, color: yellow?'rgba(240,165,0,0.7)':'#8aafc8', marginTop:1 }}>{sub}</div>}
     </div>
   )
 }
@@ -186,43 +186,17 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
 
         {/* 통계 카드 */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5, marginBottom:8 }}>
-          <StatCard label="만수위 (FSL)"  value={stats.fsl}  unit="m EL" highlight={stats.fromApi} />
-          <StatCard label="수몰 면적"     value={stats.a}    unit="km²"  highlight={stats.fromApi} />
+          <StatCard label="만수위 (FSL)"  value={stats.fsl}  unit="m EL"    highlight={stats.fromApi} />
+          <StatCard label="수몰 면적"     value={stats.a}    unit="km²"     highlight={stats.fromApi} />
           <StatCard label="E-ratio"       value={stats.er}   unit="Mm³/km²" sub="저수량/수몰면적" />
           <StatCard label="증발 손실"     value={stats.evap} unit="Mm³/yr"  sub="1,500mm/yr" />
-          {candidate.damType === 'upper' &&
-            <StatCard label="낙차 (Net Head)" value={candidate.drop ?? '—'} unit="m"
-              sub={`Bed ${candidate.bed}m EL`} highlight />
-          }
+          {candidate.damType === 'upper' && <>
+            <StatCard label="낙차 (Net Head)"  value={candidate.drop ?? '—'} unit="m"
+              sub={`Bed ${candidate.bed}m EL`} yellow />
+            <StatCard label="⚡ 추정 발전용량" value={stats.power} unit="MW"
+              sub={stats.energy != null ? `${stats.energy} GWh/yr` : '2,000h/yr 기준'} yellow />
+          </>}
         </div>
-
-        {/* 발전량 — 상부댐 전용 강조 블록 */}
-        {candidate.damType === 'upper' && (
-          <div style={{
-            background:'rgba(240,165,0,0.10)', border:'2px solid rgba(240,165,0,0.55)',
-            borderRadius:10, padding:'10px 14px', marginBottom:8,
-          }}>
-            <div style={{ fontSize:11, color:'#f0a500', fontFamily:'var(--font-mono)',
-              letterSpacing:'0.1em', marginBottom:6 }}>⚡ 추정 발전량</div>
-            <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:4 }}>
-              <span style={{ fontFamily:'var(--font-mono)', fontSize:28, fontWeight:700,
-                color:'#f0a500', lineHeight:1 }}>
-                {stats.power ?? '—'}
-              </span>
-              {stats.power != null && <span style={{ fontSize:14, color:'#ffd580', fontWeight:600 }}>MW</span>}
-              {stats.energy != null && (
-                <span style={{ fontSize:13, color:'#ffd580', fontFamily:'var(--font-mono)', marginLeft:4 }}>
-                  / {stats.energy} GWh/yr
-                </span>
-              )}
-            </div>
-            <div style={{ fontSize:10, color:'rgba(240,165,0,0.65)', fontFamily:'var(--font-mono)', lineHeight:1.6 }}>
-              P = 9.8 × Q × H × η &nbsp;|&nbsp; η=0.85 &nbsp;|&nbsp; 연간 2,000h 기준<br/>
-              Q = {stats.v != null ? ((stats.v * 1e6) / (2000 * 3600)).toFixed(2) : '—'} m³/s
-              &nbsp;|&nbsp; H = {candidate.drop ?? '—'} m
-            </div>
-          </div>
-        )}
 
         {/* 프로파일 차트 */}
         {!approx
