@@ -55,8 +55,10 @@ function buildLongProfile(candidate, heightM) {
   const fsl      = calcFsl(candidate, safeH)
   const area_km2 = estimateArea(candidate, safeH) ?? 0
   const vol_mm3  = estimateVolume(candidate, safeH) ?? 0
-  const avgDepth = area_km2 > 0 ? (vol_mm3 / area_km2) : safeH / 2
-  const lengthM  = (area_km2 * 1e6) / Math.max(avgDepth * 2, 1)
+
+  // 종단 길이 추정: L = sqrt(A) × 형상계수(2.0)
+  // 산악 V자 계곡 특성 반영, reservoirCoords 실측과 검증 완료
+  const lengthM = Math.sqrt(area_km2 * 1e6) * 2.0
 
   const N = 60
   const pts = Array.from({ length: N + 1 }, (_, i) => {
