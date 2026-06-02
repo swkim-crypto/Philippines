@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   estimateVolume, estimateArea, calcFsl, calcEfficiency, estimateEvap,
   PRIORITY_CONFIG, HEIGHT_STEPS, CANDIDATES,
@@ -45,6 +45,21 @@ function StatCard({ label, value, unit, sub, highlight, yellow }) {
 
 export default function DetailPanel({ candidate, heightM, onHeightChange, simResult, simLoading }) {
   const approx = candidate ? isApproxMode(candidate) : false
+
+  // 높이 스텝 토글 (10m / 5m)
+  const [stepMode, setStepMode] = useState(5)
+
+  // 버튼 범위 — 10m 토글이 깔끔하게 떨어지도록 round tens
+  const H_MIN = 20, H_MAX = 120
+  const heightSteps = []
+  for (let h = H_MIN; h <= H_MAX; h += stepMode) heightSteps.push(h)
+
+  // 스텝 전환 시 현재 높이를 새 격자에 스냅
+  const switchStep = (m) => {
+    setStepMode(m)
+    const snapped = Math.min(H_MAX, Math.max(H_MIN, Math.round(heightM / m) * m))
+    if (snapped !== heightM) onHeightChange(snapped)
+  }
 
   // simResult 있으면 API 값, 없으면 로컬 추정
   const stats = useMemo(() => {
@@ -130,12 +145,26 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
 
       <div style={{ overflow:'auto', flex:1, padding:'8px 12px 0' }}>
 
-        {/* 높이 슬라이더 */}
+        {/* 높이 선택 — 10m/5m 토글 + 버튼 그리드 */}
         <div style={{ background:'var(--bg-card)', border:'1px solid var(--border-acc)', borderRadius:8, padding:'8px 12px', marginBottom:8 }}>
-          <div style={{ display:'flex', alignItems:'baseline', marginBottom:5 }}>
+          <div style={{ display:'flex', alignItems:'center', marginBottom:8 }}>
             <span style={{ fontSize:11, color:'var(--acc-teal)', fontFamily:'var(--font-mono)', marginRight:10 }}>높이</span>
             <span style={{ fontFamily:'var(--font-mono)', fontSize:28, fontWeight:700, color:'var(--acc-teal)', lineHeight:1 }}>{heightM}</span>
             <span style={{ fontSize:13, color:'#c0d4e0', marginLeft:3 }}>m</span>
+
+            {/* 스텝 토글 */}
+            <div style={{ display:'flex', gap:4, marginLeft:12 }}>
+              {[10, 5].map(m => (
+                <button key={m} onClick={() => switchStep(m)} style={{
+                  padding:'2px 9px', fontSize:11, fontFamily:'var(--font-mono)', borderRadius:5, cursor:'pointer',
+                  background: stepMode===m ? 'var(--acc-teal)' : 'transparent',
+                  color:      stepMode===m ? 'var(--bg-deep)' : '#a0bcd0',
+                  border:    `1px solid ${stepMode===m ? 'var(--acc-teal)' : 'rgba(255,255,255,0.12)'}`,
+                  fontWeight: stepMode===m ? 700 : 400,
+                }}>{m}m</button>
+              ))}
+            </div>
+
             <div style={{ flex:1 }} />
             {damLength != null && (
               <div style={{ display:'flex', alignItems:'baseline', gap:4, background:'rgba(240,165,0,0.12)',
@@ -147,18 +176,21 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
               </div>
             )}
           </div>
-          <input type="range" min={35} max={85} step={5} value={heightM}
+
+          <input type="range" min={H_MIN} max={H_MAX} step={stepMode} value={heightM}
             onChange={e => onHeightChange(Number(e.target.value))}
             style={{ width:'100%', marginBottom:8, accentColor:'var(--acc-teal)', cursor:'pointer' }}
           />
-          <div style={{ display:'flex', gap:3 }}>
-            {HEIGHT_STEPS.map(h => (
+
+          {/* 높이 버튼 — 5m일 땐 자동 2행 */}
+          <div style={{ display:'flex', flexWrap:'wrap', gap:3 }}>
+            {heightSteps.map(h => (
               <button key={h} onClick={() => onHeightChange(h)} style={{
-                flex:1, padding:'3px 0',
+                width:'calc(9.09% - 3px)', minWidth:30, padding:'3px 0',
                 background: h===heightM ? 'var(--acc-teal)' : 'transparent',
                 color:      h===heightM ? 'var(--bg-deep)' : '#a0bcd0',
                 border:    `1px solid ${h===heightM?'var(--acc-teal)':'rgba(255,255,255,0.12)'}`,
-                borderRadius:4, fontSize:11, fontFamily:'var(--font-mono)', fontWeight: h===heightM?700:400,
+                borderRadius:4, fontSize:11, fontFamily:'var(--font-mono)', fontWeight: h===heightM?700:400, cursor:'pointer',
               }}>{h}</button>
             ))}
           </div>
