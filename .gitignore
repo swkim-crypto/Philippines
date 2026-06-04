@@ -30,3 +30,6 @@ gee-key.json
 # OS
 .DS_Store
 Thumbs.db
+
+# 관련 문서
+docs/
