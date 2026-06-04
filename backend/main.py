@@ -241,17 +241,19 @@ def _simulate(tif_path, dam, dam_id, fsl):
         # ── 수몰 마스크 ───────────────────────────
         flood_mask = (~np.isnan(dem)) & (dem <= fsl) & upstream_mask
 
-        # ── 연결 성분 — 댐 바로 상류 시드 ────────
+        # ── 연결 성분 — 댐 중점 최근접 잠긴 픽셀을 시드로 ──
+        # (기존: 축선 중점에서 상류 직선 탐색 → 좁은 협곡에서 낮은 FSL일 때 실패)
+        # flood_mask(잠김∩상류) 중 댐 중점에 가장 가까운 픽셀을 직접 선택.
         pixel_size = abs(t.a)
-        seed_ent   = None
-        for dist_m in range(int(pixel_size), int(radius/2), int(pixel_size*2)):
-            sx_utm = cx_utm + nv[0] * upstream_sign * dist_m
-            sy_utm = cy_utm + nv[1] * upstream_sign * dist_m
-            sr = int((sy_utm - t.f) / t.e)
-            sc = int((sx_utm - t.c) / t.a)
-            if 0 <= sr < h and 0 <= sc < w and flood_mask[sr, sc]:
-                seed_ent = (sr, sc)
-                break
+        seed_ent = None
+        ys_idx, xs_idx = np.nonzero(flood_mask)
+        if len(ys_idx) > 0:
+            # 댐 중점의 픽셀 좌표
+            cr = (cy_utm - t.f) / t.e
+            cc = (cx_utm - t.c) / t.a
+            d2 = (ys_idx - cr) ** 2 + (xs_idx - cc) ** 2
+            k = int(np.argmin(d2))
+            seed_ent = (int(ys_idx[k]), int(xs_idx[k]))
 
         if seed_ent is None:
             logger.warning(f"{dam_id}: 시드 픽셀 없음 (FSL={fsl}m)")
