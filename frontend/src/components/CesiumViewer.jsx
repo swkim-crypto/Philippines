@@ -7,22 +7,13 @@ Cesium.Ion.defaultAccessToken =
   import.meta.env.VITE_CESIUM_TOKEN ??
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ5YS1lOTViYjlkZjdjNDkiLCJpZCI6MjU2NTQ1LCJpYXQiOjE3MzI2MDE0OTN9.l9OVl0-GEjkl7GxvGKD0bDjJSy3Ps1Ml9BhWQmVaABs'
 
-const CAM = {
-  // 카메라: 하류 방향에서 상류를 바라봄, pitch -15°
-  CBC_lower:   { lon:120.560422, lat:16.626439, alt:5500, heading:0   },
-  CBBC_lower:  { lon:120.552200, lat:16.611586, alt:5500, heading:20  },
-  CPC_lower:   { lon:120.572910, lat:16.585556, alt:6000, heading:20  },
-  CBC_upper1:  { lon:120.569439, lat:16.767252, alt:7500, heading:180 },
-  CBBC_upper1: { lon:120.567388, lat:16.750053, alt:7500, heading:170 },
-  CBBC_upper2: { lon:120.557391, lat:16.731187, alt:7500, heading:180 },
-  CPC_upper:   { lon:120.596876, lat:16.713754, alt:8000, heading:180 },
-}
+// 카메라: 댐 남쪽 약 5km · 고도 bed+여유 에서 북쪽(상류)을 내려다봄.
+// 댐별 하드코딩 대신 좌표로 자동 계산 → id 누락으로 클릭 이동 안 되던 문제 제거.
 
 export function getDamLabel(id) {
   const MAP = {
-    CBC_lower:'CBC-하부', CBBC_lower:'CBBC-하부', CPC_lower:'CPC-하부',
-    CBC_upper1:'CBC-상부1', CBBC_upper1:'CBBC-상부1',
-    CBBC_upper2:'CBBC-상부2', CPC_upper:'CPC-상부',
+    CBC1_DOWN:'CBC1-하부', CBC3_DOWN:'CBC3-하부', CBC4_DOWN:'CBC4-하부',
+    CBC1_UP:'CBC1-상부', CBC2_UP:'CBC2-상부', CBC3_UP:'CBC3-상부', CBC4_UP:'CBC4-상부',
   }
   return MAP[id] ?? id
 }
@@ -220,12 +211,13 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
 
   // ── 카메라 ───────────────────────────────────────
   const flyToSelected = useCallback(() => {
-    const v=viewerRef.current, cam=CAM[selected?.id]
-    if (!v||!cam) return
+    const v = viewerRef.current; if (!v || !selected) return
+    const isUpper = selected.damType === 'upper'
+    const alt = (selected.bed ?? 200) + (isUpper ? 5000 : 4500)
     v.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(cam.lon, cam.lat, cam.alt),
-      orientation: { heading:Cesium.Math.toRadians(cam.heading), pitch:Cesium.Math.toRadians(-15), roll:0 },
-      duration:1.5,
+      destination: Cesium.Cartesian3.fromDegrees(selected.lon, selected.lat - 0.045, alt),
+      orientation: { heading: 0, pitch: Cesium.Math.toRadians(-25), roll: 0 },
+      duration: 1.5,
     })
   }, [selected])
 
