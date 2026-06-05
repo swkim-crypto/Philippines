@@ -38,7 +38,7 @@ try:
     from rasterio.warp import transform, transform_geom
     from rasterio.features import shapes
     from scipy import ndimage
-    from shapely.geometry import shape, mapping, LineString, MultiPolygon, Polygon
+    from shapely.geometry import shape, mapping, LineString, MultiPolygon, Polygon, Point
     from shapely.ops import unary_union
     RASTER_OK = True
     logger.info("✅ rasterio + scipy + shapely 로드 성공")
@@ -277,22 +277,36 @@ def _simulate(tif_path, dam, dam_id, fsl):
         volume_m3  = float(np.nansum(depth) * pixel_area)
         volume_mm3 = round(volume_m3 / 1e6, 3)
 
-        # ── 폴리곤 변환 (Chaikin 2회 평활화) ─────
-        def _chaikin(geom, iterations=2):
+        # ── 폴리곤 변환 (Chaikin 2회 · 댐 접점 고정) ─────
+        # 댐 축선에 가까운 꼭짓점(anchor)은 평활화에서 제외해 댐에 밀착시키고,
+        # 나머지 외곽선만 부드럽게 한다.
+        def _chaikin(geom, dam_line, thr, iterations=2):
             def smooth_ring(coords):
                 pts = list(coords)
                 if len(pts) >= 2 and pts[0] == pts[-1]:
                     pts = pts[:-1]
                 if len(pts) < 3:
                     return pts
+                anchor = [dam_line.distance(Point(p)) <= thr for p in pts]
                 for _ in range(iterations):
                     new = []
+                    na = []
                     n = len(pts)
                     for i in range(n):
                         p0, p1 = pts[i], pts[(i + 1) % n]
-                        new.append((0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]))
-                        new.append((0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]))
+                        a0, a1 = anchor[i], anchor[(i + 1) % n]
+                        if a0:
+                            new.append(p0); na.append(True)            # 앵커는 원위치 유지
+                            if not a1:
+                                new.append((0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1])); na.append(False)
+                        else:
+                            new.append((0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1])); na.append(False)
+                            if a1:
+                                new.append(p1); na.append(True)
+                            else:
+                                new.append((0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1])); na.append(False)
                     pts = new
+                    anchor = na
                 return pts
             def smooth_poly(p):
                 ext = smooth_ring(p.exterior.coords)
@@ -304,6 +318,10 @@ def _simulate(tif_path, dam, dam_id, fsl):
                 return MultiPolygon([smooth_poly(p) for p in geom.geoms])
             return geom
 
+        # 댐 축선을 양쪽으로 연장(분석창 가로지르도록) → 접점 안정적 인식
+        _d = ax2 - ax1
+        dam_axis = LineString([tuple(ax1 - _d * 2), tuple(ax2 + _d * 2)])
+
         geojson_features = []
         if n_pixels > 0:
             raw_shapes = list(shapes(connected, transform=t))
@@ -314,7 +332,7 @@ def _simulate(tif_path, dam, dam_id, fsl):
                 if merged.geom_type == 'MultiPolygon':
                     merged = MultiPolygon([p for p in merged.geoms if p.area >= min_area])
                 simplified = merged.simplify(pixel_size * 2, preserve_topology=True)
-                smoothed = _chaikin(simplified, iterations=2).buffer(0)   # 외곽선 평활화
+                smoothed = _chaikin(simplified, dam_axis, pixel_size * 1.5, iterations=2).buffer(0)
                 wgs_geom = transform_geom(crs, "EPSG:4326", mapping(smoothed))
                 geojson_features = [{
                     "type": "Feature",
