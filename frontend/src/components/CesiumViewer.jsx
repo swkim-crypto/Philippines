@@ -7,8 +7,11 @@ Cesium.Ion.defaultAccessToken =
   import.meta.env.VITE_CESIUM_TOKEN ??
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ5YS1lOTViYjlkZjdjNDkiLCJpZCI6MjU2NTQ1LCJpYXQiOjE3MzI2MDE0OTN9.l9OVl0-GEjkl7GxvGKD0bDjJSy3Ps1Ml9BhWQmVaABs'
 
-// 카메라: 댐 남쪽 약 5km · 고도 bed+여유 에서 북쪽(상류)을 내려다봄.
-// 댐별 하드코딩 대신 좌표로 자동 계산 → id 누락으로 클릭 이동 안 되던 문제 제거.
+// 상류 방위(compass °) — 카메라가 바라볼 방향. 댐축선 법선×upstream_sign 으로 산출.
+const UP_BEARING = {
+  CBC1_DOWN:147, CBC3_DOWN:143, CBC4_DOWN:116,
+  CBC1_UP:123, CBC2_UP:60, CBC3_UP:53, CBC4_UP:38,
+}
 
 export function getDamLabel(id) {
   const MAP = {
@@ -210,16 +213,23 @@ export default function CesiumViewer({ candidates, selected, heightM, showFlood,
   }, [selected, showFlood, simResult, heightM])
 
   // ── 카메라 ───────────────────────────────────────
+  // 댐 선택 시: 하류에서 상류 방면으로, 댐 전방 약 1km · 15° 상공에서 응시
   const flyToSelected = useCallback(() => {
     const v = viewerRef.current; if (!v || !selected) return
-    const isUpper = selected.damType === 'upper'
-    const alt = (selected.bed ?? 200) + (isUpper ? 5000 : 4500)
+    const fsl  = calcFsl(selected, heightM)
+    const up   = UP_BEARING[selected.id] ?? 0          // 상류 방위(°) = 시선 방향
+    const down = (up + 180) % 360                      // 하류(카메라 위치) 방향
+    const dist = 1000                                  // 댐 전방 1km
+    const dRad = down * Math.PI / 180
+    const dlat = (dist * Math.cos(dRad)) / 110540
+    const dlon = (dist * Math.sin(dRad)) / (111320 * Math.cos(selected.lat * Math.PI / 180))
+    const alt  = fsl + dist * Math.tan(15 * Math.PI / 180)   // 15° 부감각
     v.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(selected.lon, selected.lat - 0.045, alt),
-      orientation: { heading: 0, pitch: Cesium.Math.toRadians(-25), roll: 0 },
+      destination: Cesium.Cartesian3.fromDegrees(selected.lon + dlon, selected.lat + dlat, alt),
+      orientation: { heading: Cesium.Math.toRadians(up), pitch: Cesium.Math.toRadians(-15), roll: 0 },
       duration: 1.5,
     })
-  }, [selected])
+  }, [selected, heightM])
 
   useEffect(()=>{ drawMarkers() }, [drawMarkers])
   useEffect(()=>{ drawMarkers(); drawDam(); drawFlood() }, [selected?.id])           // eslint-disable-line

@@ -52,6 +52,15 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
       borderRight: mobile ? 'none' : '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, height: '100%' }}>
 
+      {/* 삼안 로고 — 패널 최상단 */}
+      <div style={{ padding: mobile ? '10px 12px' : '10px 16px', borderBottom: '1px solid var(--border)',
+        flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', background: '#fff',
+          borderRadius: 6, padding: '5px 10px' }}>
+          <img src="/saman-logo.png" alt="삼안 saman" style={{ height: 20, display: 'block' }} />
+        </span>
+      </div>
+
       {!mobile && (
         <div style={{ padding: '12px 18px 10px', borderBottom: '1px solid var(--border)',
           flexShrink: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -62,11 +71,14 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
               댐 후보지 분석 시스템</div>
           </div>
           <button onClick={onToggleFlood} style={{
-            marginTop: 2, padding: '3px 8px', fontSize: 10, fontFamily: 'var(--font-mono)',
-            background: showFlood ? 'rgba(26,111,255,0.25)' : 'transparent',
-            color: showFlood ? '#55aaff' : 'var(--text-sec)',
-            border: `1px solid ${showFlood ? '#55aaff' : 'rgba(255,255,255,0.15)'}`,
-            borderRadius: 3, cursor: 'pointer', whiteSpace: 'nowrap' }}>💧 수몰</button>
+            marginTop: 2, padding: '8px 16px', fontSize: 14, fontWeight: 800,
+            fontFamily: 'var(--font-mono)', letterSpacing: '0.03em',
+            background: showFlood ? '#1a6fff' : 'rgba(255,255,255,0.06)',
+            color: showFlood ? '#ffffff' : 'var(--text-pri)',
+            border: `2px solid ${showFlood ? '#55aaff' : 'rgba(255,255,255,0.22)'}`,
+            borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
+            boxShadow: showFlood ? '0 0 10px rgba(26,111,255,0.5)' : 'none',
+            transition: 'all 0.15s' }}>💧 수몰</button>
         </div>
       )}
 
