@@ -38,7 +38,7 @@ try:
     from rasterio.warp import transform, transform_geom
     from rasterio.features import shapes
     from scipy import ndimage
-    from shapely.geometry import shape, mapping, LineString, MultiPolygon
+    from shapely.geometry import shape, mapping, LineString, MultiPolygon, Polygon
     from shapely.ops import unary_union
     RASTER_OK = True
     logger.info("✅ rasterio + scipy + shapely 로드 성공")
@@ -248,7 +248,6 @@ def _simulate(tif_path, dam, dam_id, fsl):
         seed_ent = None
         ys_idx, xs_idx = np.nonzero(flood_mask)
         if len(ys_idx) > 0:
-            # 댐 중점의 픽셀 좌표
             cr = (cy_utm - t.f) / t.e
             cc = (cx_utm - t.c) / t.a
             d2 = (ys_idx - cr) ** 2 + (xs_idx - cc) ** 2
@@ -278,7 +277,33 @@ def _simulate(tif_path, dam, dam_id, fsl):
         volume_m3  = float(np.nansum(depth) * pixel_area)
         volume_mm3 = round(volume_m3 / 1e6, 3)
 
-        # ── 폴리곤 변환 ───────────────────────────
+        # ── 폴리곤 변환 (Chaikin 2회 평활화) ─────
+        def _chaikin(geom, iterations=2):
+            def smooth_ring(coords):
+                pts = list(coords)
+                if len(pts) >= 2 and pts[0] == pts[-1]:
+                    pts = pts[:-1]
+                if len(pts) < 3:
+                    return pts
+                for _ in range(iterations):
+                    new = []
+                    n = len(pts)
+                    for i in range(n):
+                        p0, p1 = pts[i], pts[(i + 1) % n]
+                        new.append((0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]))
+                        new.append((0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]))
+                    pts = new
+                return pts
+            def smooth_poly(p):
+                ext = smooth_ring(p.exterior.coords)
+                ints = [smooth_ring(r.coords) for r in p.interiors]
+                return Polygon(ext, ints)
+            if geom.geom_type == 'Polygon':
+                return smooth_poly(geom)
+            if geom.geom_type == 'MultiPolygon':
+                return MultiPolygon([smooth_poly(p) for p in geom.geoms])
+            return geom
+
         geojson_features = []
         if n_pixels > 0:
             raw_shapes = list(shapes(connected, transform=t))
@@ -289,7 +314,8 @@ def _simulate(tif_path, dam, dam_id, fsl):
                 if merged.geom_type == 'MultiPolygon':
                     merged = MultiPolygon([p for p in merged.geoms if p.area >= min_area])
                 simplified = merged.simplify(pixel_size * 2, preserve_topology=True)
-                wgs_geom = transform_geom(crs, "EPSG:4326", mapping(simplified))
+                smoothed = _chaikin(simplified, iterations=2).buffer(0)   # 외곽선 평활화
+                wgs_geom = transform_geom(crs, "EPSG:4326", mapping(smoothed))
                 geojson_features = [{
                     "type": "Feature",
                     "geometry": wgs_geom,
