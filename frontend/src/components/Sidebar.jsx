@@ -52,13 +52,11 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
       borderRight: mobile ? 'none' : '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, height: '100%' }}>
 
-      {/* 삼안 로고 — 패널 최상단 */}
-      <div style={{ padding: mobile ? '10px 12px' : '10px 16px', borderBottom: '1px solid var(--border)',
-        flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', background: '#fff',
-          borderRadius: 6, padding: '5px 10px' }}>
-          <img src="/saman-logo.png" alt="삼안 saman" style={{ height: 20, display: 'block' }} />
-        </span>
+      {/* 삼안 로고 — 패널 최상단 꽉 차게 */}
+      <div style={{ padding: mobile ? '14px 16px' : '16px 16px', borderBottom: '1px solid var(--border)',
+        flexShrink: 0, background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <img src="/saman-logo.png" alt="삼안 saman"
+          style={{ width: '100%', height: 'auto', display: 'block' }} />
       </div>
 
       {!mobile && (
