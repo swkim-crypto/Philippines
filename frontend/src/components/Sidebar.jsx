@@ -52,13 +52,6 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
       borderRight: mobile ? 'none' : '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, height: '100%' }}>
 
-      {/* 삼안 로고 — 패널 최상단 꽉 차게 */}
-      <div style={{ padding: mobile ? '14px 16px' : '16px 16px', borderBottom: '1px solid var(--border)',
-        flexShrink: 0, background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <img src="/saman-logo.png" alt="삼안 saman"
-          style={{ width: '100%', height: 'auto', display: 'block' }} />
-      </div>
-
       {!mobile && (
         <div style={{ padding: '12px 18px 10px', borderBottom: '1px solid var(--border)',
           flexShrink: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -115,6 +108,13 @@ export default function Sidebar({ candidates, selected, onSelect, mobile, showFl
         {items.length === 0 && (
           <div style={{ padding: '24px 18px', textAlign: 'center', fontSize: 12, color: 'var(--text-sec)', fontFamily: 'var(--font-mono)' }}>후보지 로딩 중...</div>
         )}
+      </div>
+
+      {/* 삼안 로고 — 패널 최하단 (90%) */}
+      <div style={{ padding: mobile ? '12px 16px' : '14px 16px', borderTop: '1px solid var(--border)',
+        flexShrink: 0, background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <img src="/saman-logo.png" alt="삼안 saman"
+          style={{ width: '90%', height: 'auto', display: 'block' }} />
       </div>
     </div>
   )
