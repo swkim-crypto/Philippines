@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import {
   estimateVolume, estimateArea, calcFsl, calcEfficiency, estimateEvap,
   PRIORITY_CONFIG, HEIGHT_STEPS, CANDIDATES,
@@ -8,17 +8,14 @@ import ProfileChart from './ProfileChart.jsx'
 
 const isApproxMode = c => c.bed == null || c.baseArea == null
 
-// 발전량 추정: P(MW) = 9.8 × Q(m³/s) × H(m) × η / 1000
-// Q: 저수량을 연간 유효 가동시간(2000h) 기준으로 환산
 function estimatePower(volumeMm3, dropM, opHours = 2000, eta = 0.85) {
   if (!volumeMm3 || !dropM || dropM <= 0) return { power: null, energy: null }
   const q = (volumeMm3 * 1e6) / (opHours * 3600)
-  const power  = Math.round(9.8 * q * dropM * eta / 1000 * 10) / 10  // MW
-  const energy = Math.round(power * opHours / 1000 * 10) / 10          // GWh/yr
+  const power  = Math.round(9.8 * q * dropM * eta / 1000 * 10) / 10
+  const energy = Math.round(power * opHours / 1000 * 10) / 10
   return { power, energy }
 }
 
-// 같은 cat(CBC/CBBC/CPC)의 연계 댐 찾기
 function getLinkedDams(candidate) {
   if (!candidate?.cat) return { lower: null, uppers: [] }
   const same = CANDIDATES.filter(c => c.cat === candidate.cat && c.id !== candidate.id)
@@ -46,46 +43,64 @@ function StatCard({ label, value, unit, sub, highlight, yellow }) {
 export default function DetailPanel({ candidate, heightM, onHeightChange, simResult, simLoading }) {
   const approx = candidate ? isApproxMode(candidate) : false
 
-  // 높이 스텝 토글 (10m / 5m)
+  // 높이 컨트롤 상태: 스텝(10/5), 상한(120/200), 페이지
   const [stepMode, setStepMode] = useState(5)
+  const [maxH, setMaxH] = useState(120)
+  const [pageIdx, setPageIdx] = useState(0)
+  const H_MIN = 20
 
-  // 버튼 범위 — 10m 토글이 깔끔하게 떨어지도록 round tens
-  const H_MIN = 20, H_MAX = 120
-  const heightSteps = []
-  for (let h = H_MIN; h <= H_MAX; h += stepMode) heightSteps.push(h)
+  // 현재 스텝·상한 기준 전체 높이 → 필요 시 구간 페이지로 분할
+  const allHeights = []
+  for (let h = H_MIN; h <= maxH; h += stepMode) allHeights.push(h)
+  const pages = []
+  if (allHeights.length <= 22) {
+    pages.push(allHeights)
+  } else {
+    let chunk = []
+    for (const h of allHeights) {
+      chunk.push(h)
+      if (h === 120 && maxH > 120) { pages.push(chunk); chunk = [] }
+    }
+    if (chunk.length) pages.push(chunk)
+  }
+  const safePage = Math.min(pageIdx, pages.length - 1)
+  const curHeights = pages[safePage]
 
-  // 스텝 전환 시 현재 높이를 새 격자에 스냅
+  // 현재 높이가 속한 페이지로 자동 이동
+  useEffect(() => {
+    const idx = pages.findIndex(pg => pg.includes(heightM))
+    if (idx >= 0 && idx !== pageIdx) setPageIdx(idx)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heightM, stepMode, maxH])
+
   const switchStep = (m) => {
     setStepMode(m)
-    const snapped = Math.min(H_MAX, Math.max(H_MIN, Math.round(heightM / m) * m))
+    const snapped = Math.min(maxH, Math.max(H_MIN, Math.round(heightM / m) * m))
     if (snapped !== heightM) onHeightChange(snapped)
   }
+  const switchMax = (mx) => {
+    setMaxH(mx)
+    if (heightM > mx) onHeightChange(mx)
+  }
 
-  // simResult 있으면 API 값, 없으면 로컬 추정
   const stats = useMemo(() => {
     if (!candidate) return null
     const isUpper = candidate.damType === 'upper'
     const drop = candidate.drop ?? 0
-
     if (simResult) {
       const pw = simResult.power_mw != null
         ? { power: simResult.power_mw, energy: simResult.energy_gwh }
         : estimatePower(simResult.volume_mm3, drop)
       return {
-        fsl:     simResult.fsl,
-        a:       simResult.area_km2,
-        v:       simResult.volume_mm3,
-        er:      calcEfficiency(simResult.volume_mm3, simResult.area_km2),
-        evap:    estimateEvap(simResult.area_km2),
-        fromApi: simResult.source === 'api',
-        power:   isUpper ? pw.power  : null,
-        energy:  isUpper ? pw.energy : null,
+        fsl: simResult.fsl, a: simResult.area_km2, v: simResult.volume_mm3,
+        er: calcEfficiency(simResult.volume_mm3, simResult.area_km2),
+        evap: estimateEvap(simResult.area_km2), fromApi: simResult.source === 'api',
+        power: isUpper ? pw.power : null, energy: isUpper ? pw.energy : null,
       }
     }
-    const v   = estimateVolume(candidate, heightM)
-    const a   = estimateArea(candidate, heightM)
+    const v = estimateVolume(candidate, heightM), a = estimateArea(candidate, heightM)
     const fsl = calcFsl(candidate, heightM)
-    const pw  = isUpper ? estimatePower(v, drop) : { power: null, energy: null }
+    const pw = isUpper ? estimatePower(v, drop) : { power: null, energy: null }
     return { fsl, a, v, er: calcEfficiency(v,a), evap: estimateEvap(a), fromApi: false,
              power: pw.power, energy: pw.energy }
   }, [candidate, heightM, simResult])
@@ -111,11 +126,18 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
   const baseV  = simResult?.source==='api' ? simResult.volume_mm3 : estimateVolume(candidate, candidate.baseH)
   const pct    = baseV ? Math.round(((stats.v - baseV) / baseV) * 100) : 0
 
+  const toggleBtn = (active) => ({
+    padding:'2px 9px', fontSize:11, fontFamily:'var(--font-mono)', borderRadius:5, cursor:'pointer',
+    background: active ? 'var(--acc-teal)' : 'transparent',
+    color:      active ? 'var(--bg-deep)' : '#a0bcd0',
+    border:    `1px solid ${active ? 'var(--acc-teal)' : 'rgba(255,255,255,0.12)'}`,
+    fontWeight: active ? 700 : 400,
+  })
+
   return (
     <div style={{ width:420, background:'var(--bg-panel)', borderLeft:'1px solid var(--border)',
       display:'flex', flexDirection:'column', overflow:'hidden', flexShrink:0, height:'100%' }}>
 
-      {/* 헤더 */}
       <div style={{ padding:'8px 14px 7px', borderBottom:'1px solid var(--border)', background:'var(--bg-card)', flexShrink:0 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:3 }}>
           <span style={{ fontFamily:'var(--font-mono)', fontSize:20, fontWeight:700, color:cfg.color }}>{candidate.id}</span>
@@ -124,15 +146,11 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
             {candidate.priority}
           </div>
           {simLoading && (
-            <span style={{ fontSize:10, color:'var(--acc-amber)', fontFamily:'var(--font-mono)', animation:'pulse 1s infinite' }}>
-              ⟳ 계산 중
-            </span>
+            <span style={{ fontSize:10, color:'var(--acc-amber)', fontFamily:'var(--font-mono)', animation:'pulse 1s infinite' }}>⟳ 계산 중</span>
           )}
           {stats.fromApi && (
             <span style={{ fontSize:9, padding:'2px 6px', background:'rgba(26,111,255,0.15)',
-              border:'1px solid rgba(26,111,255,0.4)', borderRadius:3, color:'#55aaff', fontFamily:'var(--font-mono)' }}>
-              DEM 실측
-            </span>
+              border:'1px solid rgba(26,111,255,0.4)', borderRadius:3, color:'#55aaff', fontFamily:'var(--font-mono)' }}>DEM 실측</span>
           )}
         </div>
         <div style={{ display:'flex', gap:12, alignItems:'center' }}>
@@ -145,26 +163,13 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
 
       <div style={{ overflow:'auto', flex:1, padding:'8px 12px 0' }}>
 
-        {/* 높이 선택 — 10m/5m 토글 + 버튼 그리드 */}
+        {/* 높이 선택 */}
         <div style={{ background:'var(--bg-card)', border:'1px solid var(--border-acc)', borderRadius:8, padding:'8px 12px', marginBottom:8 }}>
-          <div style={{ display:'flex', alignItems:'center', marginBottom:8 }}>
+          {/* 행1: 높이 + 댐길이 */}
+          <div style={{ display:'flex', alignItems:'baseline', marginBottom:6 }}>
             <span style={{ fontSize:11, color:'var(--acc-teal)', fontFamily:'var(--font-mono)', marginRight:10 }}>높이</span>
             <span style={{ fontFamily:'var(--font-mono)', fontSize:28, fontWeight:700, color:'var(--acc-teal)', lineHeight:1 }}>{heightM}</span>
             <span style={{ fontSize:13, color:'#c0d4e0', marginLeft:3 }}>m</span>
-
-            {/* 스텝 토글 */}
-            <div style={{ display:'flex', gap:4, marginLeft:12 }}>
-              {[10, 5].map(m => (
-                <button key={m} onClick={() => switchStep(m)} style={{
-                  padding:'2px 9px', fontSize:11, fontFamily:'var(--font-mono)', borderRadius:5, cursor:'pointer',
-                  background: stepMode===m ? 'var(--acc-teal)' : 'transparent',
-                  color:      stepMode===m ? 'var(--bg-deep)' : '#a0bcd0',
-                  border:    `1px solid ${stepMode===m ? 'var(--acc-teal)' : 'rgba(255,255,255,0.12)'}`,
-                  fontWeight: stepMode===m ? 700 : 400,
-                }}>{m}m</button>
-              ))}
-            </div>
-
             <div style={{ flex:1 }} />
             {damLength != null && (
               <div style={{ display:'flex', alignItems:'baseline', gap:4, background:'rgba(240,165,0,0.12)',
@@ -177,14 +182,35 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
             )}
           </div>
 
-          <input type="range" min={H_MIN} max={H_MAX} step={stepMode} value={heightM}
+          {/* 행2: 스텝 토글 + 범위 토글 + (페이지 칩) */}
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8, flexWrap:'wrap' }}>
+            <div style={{ display:'flex', gap:4 }}>
+              {[10,5].map(m => <button key={m} onClick={()=>switchStep(m)} style={toggleBtn(stepMode===m)}>{m}m</button>)}
+            </div>
+            <div style={{ width:1, height:16, background:'rgba(255,255,255,0.12)' }} />
+            <div style={{ display:'flex', gap:4 }}>
+              {[120,200].map(mx => <button key={mx} onClick={()=>switchMax(mx)} style={toggleBtn(maxH===mx)}>~{mx}</button>)}
+            </div>
+            {pages.length > 1 && <>
+              <div style={{ flex:1 }} />
+              <div style={{ display:'flex', gap:4 }}>
+                {pages.map((pg,i) => (
+                  <button key={i} onClick={()=>setPageIdx(i)} style={{
+                    ...toggleBtn(i===safePage), padding:'2px 7px',
+                  }}>{pg[0]}–{pg[pg.length-1]}</button>
+                ))}
+              </div>
+            </>}
+          </div>
+
+          <input type="range" min={H_MIN} max={maxH} step={stepMode} value={heightM}
             onChange={e => onHeightChange(Number(e.target.value))}
             style={{ width:'100%', marginBottom:8, accentColor:'var(--acc-teal)', cursor:'pointer' }}
           />
 
-          {/* 높이 버튼 — 5m일 땐 자동 2행 */}
+          {/* 버튼 그리드 (현재 페이지) */}
           <div style={{ display:'flex', flexWrap:'wrap', gap:3 }}>
-            {heightSteps.map(h => (
+            {curHeights.map(h => (
               <button key={h} onClick={() => onHeightChange(h)} style={{
                 width:'calc(9.09% - 3px)', minWidth:30, padding:'3px 0',
                 background: h===heightM ? 'var(--acc-teal)' : 'transparent',
@@ -196,7 +222,6 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
           </div>
         </div>
 
-        {/* 저수량 — 핵심 수치 */}
         <div style={{ fontSize:11, color:'#a0bcd0', fontFamily:'var(--font-mono)', letterSpacing:'0.1em', marginBottom:4 }}>계산 결과</div>
         <div style={{ background:'var(--bg-card)', border:`1px solid ${stats.fromApi?'rgba(26,111,255,0.4)':'var(--border-acc)'}`,
           borderRadius:8, padding:'7px 12px', marginBottom:6, display:'flex', alignItems:'baseline', gap:8, flexWrap:'wrap' }}>
@@ -210,27 +235,22 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
               background: pct>0?'rgba(29,158,117,0.15)':'rgba(224,92,92,0.15)',
               color:      pct>0?'var(--acc-green)':'var(--acc-red)',
               border:    `1px solid ${pct>0?'var(--acc-green)':'var(--acc-red)'}44`,
-              borderRadius:4, fontFamily:'var(--font-mono)' }}>
-              {pct>0?'+':''}{pct}%
-            </span>
+              borderRadius:4, fontFamily:'var(--font-mono)' }}>{pct>0?'+':''}{pct}%</span>
           )}
         </div>
 
-        {/* 통계 카드 */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5, marginBottom:8 }}>
           <StatCard label="만수위 (FSL)"  value={stats.fsl}  unit="m EL"    highlight={stats.fromApi} />
           <StatCard label="수몰 면적"     value={stats.a}    unit="km²"     highlight={stats.fromApi} />
           <StatCard label="E-ratio"       value={stats.er}   unit="Mm³/km²" sub="저수량/수몰면적" />
           <StatCard label="증발 손실"     value={stats.evap} unit="Mm³/yr"  sub="1,500mm/yr" />
           {candidate.damType === 'upper' && <>
-            <StatCard label="낙차 (Net Head)"  value={candidate.drop ?? '—'} unit="m"
-              sub={`Bed ${candidate.bed}m EL`} yellow />
+            <StatCard label="낙차 (Net Head)"  value={candidate.drop ?? '—'} unit="m" sub={`Bed ${candidate.bed}m EL`} yellow />
             <StatCard label="⚡ 추정 발전용량" value={stats.power} unit="MW"
               sub={stats.energy != null ? `${stats.energy} GWh/yr` : '2,000h/yr 기준'} yellow />
           </>}
         </div>
 
-        {/* 프로파일 차트 */}
         {!approx
           ? <ProfileChart candidate={candidate} heightM={heightM} />
           : (
@@ -245,7 +265,6 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
           )
         }
 
-        {/* 기본 제원 */}
         <div style={{ fontSize:11, color:'#a0bcd0', fontFamily:'var(--font-mono)', letterSpacing:'0.1em', marginBottom:4 }}>기본 제원</div>
         <div style={{ background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:8, overflow:'hidden', marginBottom:8 }}>
           {[
@@ -263,7 +282,6 @@ export default function DetailPanel({ candidate, heightM, onHeightChange, simRes
           ))}
         </div>
 
-        {/* 연계 댐 정보 */}
         {linked && (linked.lower || linked.uppers.length > 0) && (
           <>
             <div style={{ fontSize:11, color:'#a0bcd0', fontFamily:'var(--font-mono)', letterSpacing:'0.1em', marginBottom:4 }}>
