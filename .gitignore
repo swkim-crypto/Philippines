@@ -1,35 +1,47 @@
-# Node
-node_modules/
-frontend/dist/
-frontend/.vite/
+# ==========================================
+# 1. 시스템 소스 코드 관련 제외 규칙 (System 폴더 내 경로 반영)
+# ==========================================
 
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-*.egg-info/
+# Node (Frontend)
+System/frontend/node_modules/
+System/frontend/dist/
+System/frontend/.vite/
 
-# 데이터 (대용량 — Git LFS 또는 직접 업로드)
-backend/data/tif/*.tif
-backend/data/shp/*.shp
-backend/data/shp/*.dbf
-backend/data/shp/*.prj
-backend/data/shp/*.shx
-backend/data/shp/*.cpg
+# Python (Backend)
+**/__pycache__/
+**/*.py[cod]
+System/backend/.venv/
+System/backend/venv/
+**/*.egg-info/
+
+# 데이터 (대용량 GIS TIF, SHP 등)
+System/backend/data/tif/*.tif
+System/backend/data/shp/*.shp
+System/backend/data/shp/*.dbf
+System/backend/data/shp/*.prj
+System/backend/data/shp/*.shx
+System/backend/data/shp/*.cpg
 
 # 캐시는 커밋해도 됨 (소용량 JSON)
-# backend/data/cache/*.json  ← 주석 처리 = 커밋 포함
+# System/backend/data/cache/*.json ← 주석 처리 = 커밋 포함
 
-# 환경변수
+# 환경변수 및 보안 키 (매우 중요!)
 .env
 .env.*
 *.key.json
 gee-key.json
 
-# OS
+# OS 기본 생성 파일
 .DS_Store
 Thumbs.db
 
 # 관련 문서
-docs/
+System/docs/
+
+
+# ==========================================
+# 2. 시스템과 나란한 위치의 개인 작업 폴더 제외 규칙
+# ==========================================
+
+# System 폴더와 나란히 있는 새 폴더를 통째로 제외합니다.
+Projects/
